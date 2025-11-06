@@ -1,11 +1,11 @@
-# ddd-toolboxtoolbox
+# ddd-toolbox
 
-[![License MIT](https://img.shields.io/pypi/l/ddd-toolboxtoolbox.svg?color=green)](https://github.com/MontpellierRessourcesImagerie/ddd-toolboxtoolbox/raw/main/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/ddd-toolboxtoolbox.svg?color=green)](https://pypi.org/project/ddd-toolboxtoolbox)
-[![Python Version](https://img.shields.io/pypi/pyversions/ddd-toolboxtoolbox.svg?color=green)](https://python.org)
-[![tests](https://github.com/MontpellierRessourcesImagerie/ddd-toolboxtoolbox/workflows/tests/badge.svg)](https://github.com/MontpellierRessourcesImagerie/ddd-toolboxtoolbox/actions)
-[![codecov](https://codecov.io/gh/MontpellierRessourcesImagerie/ddd-toolboxtoolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/MontpellierRessourcesImagerie/ddd-toolboxtoolbox)
-[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/ddd-toolboxtoolbox)](https://napari-hub.org/plugins/ddd-toolboxtoolbox)
+[![License MIT](https://img.shields.io/pypi/l/ddd-toolbox.svg?color=green)](https://github.com/MontpellierRessourcesImagerie/ddd-toolbox/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/ddd-toolbox.svg?color=green)](https://pypi.org/project/ddd-toolbox)
+[![Python Version](https://img.shields.io/pypi/pyversions/ddd-toolbox.svg?color=green)](https://python.org)
+[![tests](https://github.com/MontpellierRessourcesImagerie/ddd-toolbox/workflows/tests/badge.svg)](https://github.com/MontpellierRessourcesImagerie/ddd-toolbox/actions)
+[![codecov](https://codecov.io/gh/MontpellierRessourcesImagerie/ddd-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/MontpellierRessourcesImagerie/ddd-toolbox)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/ddd-toolbox)](https://napari-hub.org/plugins/ddd-toolbox)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
 
@@ -25,16 +25,16 @@ https://napari.org/stable/plugins/index.html
 
 ## Installation
 
-You can install `ddd-toolboxtoolbox` via [pip]:
+You can install `ddd-toolbox` via [pip]:
 
 ```
-pip install ddd-toolboxtoolbox
+pip install ddd-toolbox
 ```
 
-If napari is not already installed, you can install `ddd-toolboxtoolbox` with napari and Qt via:
+If napari is not already installed, you can install `ddd-toolbox` with napari and Qt via:
 
 ```
-pip install "ddd-toolboxtoolbox[all]"
+pip install "ddd-toolbox[all]"
 ```
 
 
@@ -47,7 +47,7 @@ the coverage at least stays the same before you submit a pull request.
 ## License
 
 Distributed under the terms of the [MIT] license,
-"ddd-toolboxtoolbox" is free and open source software
+"ddd-toolbox" is free and open source software
 
 ## Issues
 
