@@ -1,0 +1,57 @@
+name: ddd-toolbox
+display_name: 3D Toolbox
+# use 'hidden' to remove plugin from napari hub search results
+visibility: public
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+# categories: []
+contributions:
+  commands:
+    - id: ddd-toolbox.get_reader
+      python_name: ddd_toolbox._reader:napari_get_reader
+      title: Open data with 3D Toolbox
+    - id: ddd-toolbox.write_multiple
+      python_name: ddd_toolbox._writer:write_multiple
+      title: Save multi-layer data with 3D Toolbox
+    - id: ddd-toolbox.write_single_image
+      python_name: ddd_toolbox._writer:write_single_image
+      title: Save image data with 3D Toolbox
+    - id: ddd-toolbox.make_sample_data
+      python_name: ddd_toolbox._sample_data:make_sample_data
+      title: Load sample data from 3D Toolbox
+    - id: ddd-toolbox.make_container_widget
+      python_name: ddd_toolbox:ImageThreshold
+      title: Make threshold Container widget
+    - id: ddd-toolbox.make_magic_widget
+      python_name: ddd_toolbox:threshold_magic_widget
+      title: Make threshold magic widget
+    - id: ddd-toolbox.make_function_widget
+      python_name: ddd_toolbox:threshold_autogenerate_widget
+      title: Make threshold function widget
+    - id: ddd-toolbox.make_qwidget
+      python_name: ddd_toolbox:ExampleQWidget
+      title: Make example QWidget
+  readers:
+    - command: ddd-toolbox.get_reader
+      accepts_directories: false
+      filename_patterns: ['*.npy']
+  writers:
+    - command: ddd-toolbox.write_multiple
+      layer_types: ['image*','labels*']
+      filename_extensions: []
+    - command: ddd-toolbox.write_single_image
+      layer_types: ['image']
+      filename_extensions: ['.npy']
+  sample_data:
+    - command: ddd-toolbox.make_sample_data
+      display_name: 3D Toolbox
+      key: unique_id.1
+  widgets:
+    - command: ddd-toolbox.make_container_widget
+      display_name: Container Threshold
+    - command: ddd-toolbox.make_magic_widget
+      display_name: Magic Threshold
+    - command: ddd-toolbox.make_function_widget
+      autogenerate: true
+      display_name: Autogenerate Threshold
+    - command: ddd-toolbox.make_qwidget
+      display_name: Example QWidget

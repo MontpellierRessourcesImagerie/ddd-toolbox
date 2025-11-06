@@ -1,0 +1,18 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v2.0.0
+_src_path: https://github.com/napari/napari-plugin-template
+display_name: 3D Toolbox
+email: volker.baecker@mri.cnrs.fr
+full_name: Volker Baecker
+github_repository_url: provide later
+github_username_or_organization: MontpellierRessourcesImagerie
+include_reader_plugin: true
+include_sample_data_plugin: true
+include_widget_plugin: true
+include_writer_plugin: true
+install_dependabot: true
+install_precommit: true
+license: MIT
+module_name: ddd_toolbox
+plugin_name: ddd-toolbox
+short_description: A collection of tools for 3D bio-image analysis.
