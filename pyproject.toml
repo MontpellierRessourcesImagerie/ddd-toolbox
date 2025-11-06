@@ -33,6 +33,8 @@ dependencies = [
     "magicgui",
     "qtpy",
     "scikit-image",
+    "imagecodecs",
+    "set-calibration",
 ]
 
 [project.optional-dependencies]
