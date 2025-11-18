@@ -18,18 +18,9 @@ contributions:
     - id: ddd-toolbox.make_sample_data
       python_name: ddd_toolbox._sample_data:make_sample_data
       title: Load sample data from 3D Toolbox
-    - id: ddd-toolbox.make_container_widget
-      python_name: ddd_toolbox:ImageThreshold
-      title: Make threshold Container widget
-    - id: ddd-toolbox.make_magic_widget
-      python_name: ddd_toolbox:threshold_magic_widget
-      title: Make threshold magic widget
-    - id: ddd-toolbox.make_function_widget
-      python_name: ddd_toolbox:threshold_autogenerate_widget
-      title: Make threshold function widget
-    - id: ddd-toolbox.make_qwidget
-      python_name: ddd_toolbox:ExampleQWidget
-      title: Make example QWidget
+    - id: ddd-toolbox.convolve
+      python_name: ddd_toolbox:ConvolutionWidget
+      title: Convolution
   readers:
     - command: ddd-toolbox.get_reader
       accepts_directories: false
@@ -46,12 +37,5 @@ contributions:
       display_name: 3D Toolbox
       key: unique_id.1
   widgets:
-    - command: ddd-toolbox.make_container_widget
-      display_name: Container Threshold
-    - command: ddd-toolbox.make_magic_widget
-      display_name: Magic Threshold
-    - command: ddd-toolbox.make_function_widget
-      autogenerate: true
-      display_name: Autogenerate Threshold
-    - command: ddd-toolbox.make_qwidget
-      display_name: Example QWidget
+    - command: ddd-toolbox.convolve
+      display_name: Convolution Widget

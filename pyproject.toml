@@ -35,6 +35,9 @@ dependencies = [
     "scikit-image",
     "imagecodecs",
     "set-calibration",
+    "napari-sdeconv",
+    "scipy",
+    "auto-options-python@git+https://github.com/MontpellierRessourcesImagerie/auto-options-python.git",
 ]
 
 [project.optional-dependencies]
