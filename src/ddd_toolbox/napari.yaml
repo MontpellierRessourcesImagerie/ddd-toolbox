@@ -24,6 +24,9 @@ contributions:
     - id: ddd-toolbox.fft
       python_name: ddd_toolbox:FFTWidget
       title: FFT
+    - id: ddd-toolbox.image_calculator
+      python_name: ddd_toolbox:ImageCalculatorWidget
+      title: Image Calculator
     - id: ddd-toolbox.inverse_fft
       python_name: ddd_toolbox:InverseFFTWidget
       title: Inverse FFT
@@ -47,6 +50,8 @@ contributions:
       display_name: Convolution
     - command: ddd-toolbox.fft
       display_name: FFT
+    - command: ddd-toolbox.image_calculator
+      display_name: Image Calculator
     - command: ddd-toolbox.inverse_fft
       display_name: Inverse FFT
   menus:
@@ -59,8 +64,14 @@ contributions:
     fourier:
       - command: ddd-toolbox.fft
       - command: ddd-toolbox.inverse_fft
+    napari/layers/data:
+      - submenu: image
+    image:
+      - command: ddd-toolbox.image_calculator
   submenus:
     - id: convolution
       label: Convolution
     - id: fourier
       label: Fourier
+    - id: image
+      label: Image

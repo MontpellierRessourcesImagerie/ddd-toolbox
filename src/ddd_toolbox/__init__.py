@@ -9,7 +9,8 @@ from ._sample_data import make_sample_data
 from ._widget import (
     ConvolutionWidget,
     FFTWidget,
-    InverseFFTWidget
+    InverseFFTWidget,
+    ImageCalculatorWidget,
 )
 from ._writer import write_multiple, write_single_image
 
@@ -20,5 +21,6 @@ __all__ = (
     "make_sample_data",
     "ConvolutionWidget",
     "FFTWidget",
-    "InverseFFTWidget"
+    "InverseFFTWidget",
+    "ImageCalculatorWidget"
 )

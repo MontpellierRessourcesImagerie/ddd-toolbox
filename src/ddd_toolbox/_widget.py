@@ -5,6 +5,7 @@ or scipy.
 """
 from abc import abstractmethod
 
+from PIL.ImageColor import colormap
 from PyQt5.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
 from napari.qt.threading import create_worker
@@ -12,6 +13,7 @@ from autooptions import Options
 from autooptions import OptionsWidget
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
+from ddd_toolbox.lib.image import ImageCalculator
 
 from typing import TYPE_CHECKING
 
@@ -170,3 +172,60 @@ class InverseFFTWidget(SimpleWidget):
     def displayResult(self):
         name = self.imageLayer.name + " inverse FFT"
         self.displayImage(name)
+
+
+
+class ImageCalculatorWidget(SimpleWidget):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+        self.isFFT = False
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "calculator ")
+        options.addImage(name="image 1")
+        options.addImage(name="image 2")
+        options.addChoice("operation", value='multiply', choices=('add', 'subtract', 'multiply', 'divide'))
+        options.load()
+        return options
+
+
+    def apply(self):
+        imageLayer1 = self.widget.getImageLayer('image 1')
+        imageLayer2 = self.widget.getImageLayer('image 2')
+        self.imageLayer = imageLayer1
+        operationOption = self.options.value('operation')
+        image1 = imageLayer1.data
+        image2 = imageLayer2.data
+        self.isFFT = False
+        if 'fft' in imageLayer1.metadata.keys() and 'fft' in imageLayer2.metadata.keys():
+            image1 = imageLayer1.metadata['fft']
+            image2 = imageLayer2.metadata['fft']
+            self.isFFT = True
+        self.operation = ImageCalculator(image1, image2)
+        self.operation.operation = operationOption
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Applying Image Calculator...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " calc"
+        if not self.isFFT:
+            self.displayImage(name)
+            return
+        else:
+            fft = FFT(None)
+            fft.result = self.operation.result
+            powerSpectrum = fft.getPowerSpectrum()
+            layer = self.viewer.add_image(
+                powerSpectrum,
+                name=name,
+                scale=self.imageLayer.scale,
+                units=self.imageLayer.units,
+                blending='additive',
+                colormap='inferno'
+            )
+            layer.metadata['fft'] = self.operation.result
