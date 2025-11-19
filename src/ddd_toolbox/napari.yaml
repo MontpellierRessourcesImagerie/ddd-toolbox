@@ -21,6 +21,12 @@ contributions:
     - id: ddd-toolbox.convolve
       python_name: ddd_toolbox:ConvolutionWidget
       title: Convolution
+    - id: ddd-toolbox.fft
+      python_name: ddd_toolbox:FFTWidget
+      title: FFT
+    - id: ddd-toolbox.inverse_fft
+      python_name: ddd_toolbox:InverseFFTWidget
+      title: Inverse FFT
   readers:
     - command: ddd-toolbox.get_reader
       accepts_directories: false
@@ -38,4 +44,23 @@ contributions:
       key: unique_id.1
   widgets:
     - command: ddd-toolbox.convolve
-      display_name: Convolution Widget
+      display_name: Convolution
+    - command: ddd-toolbox.fft
+      display_name: FFT
+    - command: ddd-toolbox.inverse_fft
+      display_name: Inverse FFT
+  menus:
+    napari/layers/filter:
+      - submenu: convolution
+    convolution:
+      - command: ddd-toolbox.convolve
+    napari/layers/transform:
+      - submenu: fourier
+    fourier:
+      - command: ddd-toolbox.fft
+      - command: ddd-toolbox.inverse_fft
+  submenus:
+    - id: convolution
+      label: Convolution
+    - id: fourier
+      label: Fourier

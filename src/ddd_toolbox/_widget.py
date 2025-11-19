@@ -3,15 +3,15 @@ This module contains 3D image analysis widgets which provide a gui
 for common python image analysis operations, for example from skimage
 or scipy.
 """
+from abc import abstractmethod
+
+from PyQt5.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
-from qtpy.QtWidgets import QPushButton
-from qtpy.QtWidgets import QHBoxLayout
-from napari.utils.events import Event
-
-from skimage import morphology
-
-from ddd_toolbox.lib.napari_util import NapariUtil
-from ddd_toolbox.lib.qtutil import WidgetTool
+from napari.qt.threading import create_worker
+from autooptions import Options
+from autooptions import OptionsWidget
+from ddd_toolbox.lib.filter import ConvolutionFilter
+from ddd_toolbox.lib.transform import FFT, InverseFFT
 
 from typing import TYPE_CHECKING
 
@@ -20,82 +20,153 @@ if TYPE_CHECKING:
 
 
 
-class ToolboxWidget(QWidget):
+class SimpleWidget(QWidget):
 
 
     def __init__(self, viewer):
         super().__init__()
         self.viewer = viewer
-        self.field_width = 50
-        self.napari_util = NapariUtil(self.viewer)
-        self.image_layers = self.napari_util.getImageLayers()
-        self.label_layers = self.napari_util.getLabelLayers()
-        self.image_combo_boxes = []
-        self.label_combo_boxes = []
-        self.point_combo_boxes = []
-        self.input_layer_combo_box = None
-        self.label_layer_combo_box = None
-        self.footprints = ["none", "cube", "ball", "octahedron"]
-        self.footprint = "cube"
-        self.modes = ["reflect", "constant", "nearest", "mirror", "warp"]
-        self.mode = "reflect"
-        self.footprint_combo_box = None
-        self.footprint_radius_input = None
-        self.mode_combo_box = None
-        self.input_layer = None
-        self.filter = None
-        self.viewer.layers.events.inserted.connect(self.on_layer_added_or_removed)
-        self.viewer.layers.events.removed.connect(self.on_layer_added_or_removed)
+        self.options = self.getOptions()
+        self.widget = None
+        self.operation = None
+        self.imageLayer = None
+        self.createLayout()
 
 
-    def on_layer_added_or_removed(self, event: Event):
-        self.update_layer_selection_combo_boxes()
+    def createLayout(self):
+        self.widget = OptionsWidget(self.viewer, self.options)
+        self.widget.addApplyButton(self.apply)
+        layout = QVBoxLayout()
+        layout.addWidget(self.widget)
+        self.setLayout(layout)
 
 
-    def update_layer_selection_combo_boxes(self):
-        image_layers = self.napari_util.getImageLayers()
-        label_layers = self.napari_util.getLabelLayers()
-        point_layers = self.napari_util.getPointsLayers()
-        for combo_box in self.image_combo_boxes:
-            WidgetTool.replaceItemsInComboBox(combo_box, image_layers)
-        for combo_box in self.label_combo_boxes:
-            WidgetTool.replaceItemsInComboBox(combo_box, label_layers)
-        for combo_box in self.point_combo_boxes:
-            WidgetTool.replaceItemsInComboBox(combo_box, point_layers)
+    def displayImage(self, name):
+        self.viewer.add_image(
+            self.operation.result,
+            name=name,
+            scale=self.imageLayer.scale,
+            units=self.imageLayer.units,
+            blending='additive'
+        )
+
+
+    @abstractmethod
+    def getOptions(self):
+        raise Exception("Abstract method getOptions of class SimpleWidget called!")
+
+
+    @abstractmethod
+    def apply(self):
+        raise Exception("Abstract method apply of class SimpleWidget called!")
+
+
+    @abstractmethod
+    def displayResult(self):
+        raise Exception("Abstract method displayResult of class SimpleWidget called!")
+
+
+
+class ConvolutionWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
 
 
     @classmethod
-    def get_footprint(cls, name, radius, dims):
-        se_name = name
-        two_d_ses = {'ball': 'disk', 'octahedron': 'diamond'}
-        if dims == 2:
-            if name in two_d_ses.keys():
-                se_name = two_d_ses[name]
-        if name == "cube":
-            footprint_width = 2 * radius + 1
-            if dims == 2:
-                footprint = morphology.footprint_rectangle((footprint_width, footprint_width))
-            else:
-                footprint = morphology.footprint_rectangle((footprint_width, footprint_width, footprint_width))
-        else:
-            footprint_function = getattr(morphology, se_name)
-            footprint = footprint_function(radius)
-        return footprint
+    def getOptions(cls):
+        options = Options("3D Toolbox", "Convolution Filter")
+        options.addImage()
+        options.addImage(name='kernel')
+        options.addChoice("mode", value='same', choices=('same', 'valid', 'full'))
+        options.addChoice("method", value='auto', choices=('auto', 'direct', 'fft'))
+        options.load()
+        return options
 
 
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer('image')
+        kernelLayer = self.widget.getImageLayer('kernel')
+        self.operation = ConvolutionFilter(self.imageLayer.data, kernelLayer.data)
+        self.operation.mode = self.options.value('mode')
+        self.operation.method = self.options.value('method')
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Applying convolution filter...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
 
-class ConvolutionWidget(ToolboxWidget):
-    # your QWidget.__init__ can optionally request the napari viewer instance
-    # use a type annotation of 'napari.viewer.Viewer' for any parameter
+
+    def displayResult(self):
+        name = self.imageLayer.name + " convolution"
+        self.displayImage(name)
+        
+
+
+class FFTWidget(SimpleWidget):
+    
+
     def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__(viewer)
-        self.viewer = viewer
 
-        btn = QPushButton("Click me!")
-        btn.clicked.connect(self._on_click)
 
-        self.setLayout(QHBoxLayout())
-        self.layout().addWidget(btn)
+    def getOptions(self):
+        options = Options("3D Toolbox", "FFT")
+        options.addImage()
+        options.load()
+        return options
 
-    def _on_click(self):
-        print("napari has", len(self.viewer.layers), "layers")
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer('image')
+        self.operation = FFT(self.imageLayer.data)
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Applying FFT...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " FFT"
+        powerSpectrum = self.operation.getPowerSpectrum()
+        layer = self.viewer.add_image(
+            powerSpectrum,
+            name=name,
+            scale=self.imageLayer.scale,
+            units=self.imageLayer.units,
+            blending='additive',
+            colormap='inferno'
+        )
+        layer.metadata['fft'] = self.operation.result
+
+
+
+class InverseFFTWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "Inverse FFT")
+        options.addFFT()
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer('image')
+        self.operation = InverseFFT(self.imageLayer.metadata['fft'])
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Applying Inverse FFT...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " inverse FFT"
+        self.displayImage(name)
