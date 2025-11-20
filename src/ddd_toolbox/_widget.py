@@ -161,6 +161,8 @@ class InverseFFTWidget(SimpleWidget):
     def apply(self):
         self.imageLayer = self.widget.getImageLayer('image')
         self.operation = InverseFFT(self.imageLayer.metadata['fft'])
+        if 'ifftshift' in self.imageLayer.metadata.keys() and self.imageLayer.metadata['ifftshift']:
+            self.operation.ifftshift = True
         worker = create_worker(self.operation.run,
                                _progress={'desc': 'Applying Inverse FFT...'}
                                )
@@ -228,3 +230,4 @@ class ImageCalculatorWidget(SimpleWidget):
                 colormap='inferno'
             )
             layer.metadata['fft'] = self.operation.result
+            layer.metadata['ifftshift'] = True

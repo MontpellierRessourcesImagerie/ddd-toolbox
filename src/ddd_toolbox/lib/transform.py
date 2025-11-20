@@ -3,7 +3,7 @@ from abc import abstractmethod
 from scipy.fft import fftn
 from scipy.fft import ifftn
 from scipy.fft import fftshift
-
+from scipy.fft import ifftshift
 
 
 class Transform(object):
@@ -52,7 +52,11 @@ class InverseFFT(Transform):
 
     def __init__(self, image):
         super().__init__(image)
+        self.ifftshift = False
 
 
     def run(self):
-        self.result = ifftn(self.image).real
+        if self.ifftshift:
+            self.result = ifftshift(ifftn(self.image)).real
+        else:
+            self.result = ifftn(self.image).real
