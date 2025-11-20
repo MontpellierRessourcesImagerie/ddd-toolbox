@@ -5,7 +5,6 @@ or scipy.
 """
 from abc import abstractmethod
 
-from PIL.ImageColor import colormap
 from PyQt5.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
 from napari.qt.threading import create_worker
