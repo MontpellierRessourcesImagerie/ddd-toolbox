@@ -1,4 +1,6 @@
 from abc import abstractmethod
+
+import numpy as np
 from scipy.signal import convolve
 
 
@@ -32,9 +34,12 @@ class ConvolutionFilter(Filter):
         self.kernel = kernel
         self.mode = 'same'              # Convolution mode {‘full’, ‘valid’, ‘same’}, not border mode as in superclass
         self.method = 'auto'            # Calculation mode fft or spatial domain  {‘auto’, ‘direct’, ‘fft’}
+        self.isConvertBack = True
 
 
     def run(self):
         self.result = convolve(self.image, self.kernel, mode=self.mode, method=self.method)
+        if self.isConvertBack:
+            self.result = self.result.astype(np.uint16)
 
 

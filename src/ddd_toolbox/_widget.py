@@ -13,6 +13,7 @@ from autooptions import OptionsWidget
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
 from ddd_toolbox.lib.image import ImageCalculator
+from ddd_toolbox.lib.noise import AddGaussianNoise, AddPoissonNoise
 
 from typing import TYPE_CHECKING
 
@@ -183,7 +184,7 @@ class ImageCalculatorWidget(SimpleWidget):
 
 
     def getOptions(self):
-        options = Options("3D Toolbox", "calculator ")
+        options = Options("3D Toolbox", "calculator")
         options.addImage(name="image 1")
         options.addImage(name="image 2")
         options.addChoice("operation", value='multiply', choices=('add', 'subtract', 'multiply', 'divide'))
@@ -231,3 +232,72 @@ class ImageCalculatorWidget(SimpleWidget):
             )
             layer.metadata['fft'] = self.operation.result
             layer.metadata['ifftshift'] = True
+
+
+
+class AddGaussianNoiseWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "add gaussian noise")
+        options.addImage()
+        options.addFloat("mean", value=0.0)
+        options.addFloat("stdDev", value=0.1)
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer("image")
+        self.operation = AddGaussianNoise(self.imageLayer.data)
+        self.operation.mean = self.options.value('mean')
+        self.operation.stdDev = self.options.value('stdDev')
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Adding Gaussian Noise...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " gaussian noise"
+        self.displayImage(name)
+
+
+
+class AddPoissonNoiseWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "add poisson noise")
+        options.addImage()
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer("image")
+        self.operation = AddPoissonNoise(self.imageLayer.data)
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Adding Poisson Noise...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " poisson noise"
+        self.displayImage(name)
+
+
+
+
+

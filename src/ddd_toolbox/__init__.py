@@ -11,6 +11,8 @@ from ._widget import (
     FFTWidget,
     InverseFFTWidget,
     ImageCalculatorWidget,
+    AddGaussianNoiseWidget,
+    AddPoissonNoiseWidget,
 )
 from ._writer import write_multiple, write_single_image
 
@@ -22,5 +24,7 @@ __all__ = (
     "ConvolutionWidget",
     "FFTWidget",
     "InverseFFTWidget",
-    "ImageCalculatorWidget"
+    "ImageCalculatorWidget",
+    "AddGaussianNoiseWidget",
+    "AddPoissonNoiseWidget",
 )
