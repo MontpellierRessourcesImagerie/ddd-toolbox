@@ -103,9 +103,15 @@ class LabelsOperations(QWidget):
         self.assign_measure_button = QPushButton("Assign measurement to labels")
         layout.addWidget(self.assign_measure_button)
 
+        h_layout = QHBoxLayout()
+
+        self.choose_measures_combobox = QComboBox()
+        h_layout.addWidget(self.choose_measures_combobox)
+
         self.labels_property_filter_button = QPushButton("Labels properties filtering")
         self.labels_property_filter_button.clicked.connect(self.labels_property_filter)
-        layout.addWidget(self.labels_property_filter_button)
+        h_layout.addWidget(self.labels_property_filter_button)
+        layout.addLayout(h_layout)
     
     def _get_layer_names(self, ppt):
         try:
@@ -137,19 +143,47 @@ class LabelsOperations(QWidget):
         for combo in self.layer_pools:
             self._populate_layer_combo(combo, neutral=NEUTRAL)
     
-    def ask_settings(self, parent=None):
+    def ask_filtering_settings(self, measures, parent=None):
         dlg = QDialog(parent)
-        dlg.setWindowTitle("Settings")
+        dlg.setWindowTitle("Filtering settings")
 
         form = QFormLayout()
+        prompts = {}
 
-        radius = QLineEdit("5")
-        name = QLineEdit("Sample")
-        enable = QCheckBox("Enable feature")
-
-        form.addRow("Radius:", radius)
-        form.addRow("Name:", name)
-        form.addRow(enable)
+        for metric in measures.keys():
+            h_layout = QHBoxLayout()
+            use_metric_check = QCheckBox(metric)
+            h_layout.addWidget(use_metric_check)
+            h_layout.addSpacing(20)
+            lbl_min = QLabel("Min:")
+            lbl_min.setEnabled(False)
+            h_layout.addWidget(lbl_min)
+            min_val = QDoubleSpinBox()
+            min_val.setEnabled(False)
+            measure_min = np.min(measures[metric])
+            measure_max = np.max(measures[metric])
+            min_val.setMinimum(measure_min)
+            min_val.setValue(measure_min)
+            min_val.setMaximum(measure_max)
+            h_layout.addWidget(min_val)
+            max_val = QDoubleSpinBox()
+            lbl_max = QLabel("Max:")
+            lbl_max.setEnabled(False)
+            h_layout.addWidget(lbl_max)
+            max_val.setMinimum(measure_min)
+            max_val.setMaximum(measure_max)
+            max_val.setValue(measure_max)
+            max_val.setEnabled(False)
+            h_layout.addWidget(max_val)
+            def on_check_state_changed(state, lbl_min=lbl_min, lbl_max=lbl_max, min_val=min_val, max_val=max_val):
+                enabled = (state == Qt.Checked)
+                lbl_min.setEnabled(enabled)
+                lbl_max.setEnabled(enabled)
+                min_val.setEnabled(enabled)
+                max_val.setEnabled(enabled)
+            use_metric_check.stateChanged.connect(on_check_state_changed)
+            form.addRow(h_layout)
+            prompts[metric] = (use_metric_check, min_val, max_val)
 
         btn_ok = QPushButton("OK")
         btn_ok.clicked.connect(dlg.accept)
@@ -161,17 +195,58 @@ class LabelsOperations(QWidget):
 
         if dlg.exec_():
             return {
-                "radius": int(radius.text()),
-                "name": name.text(),
-                "enabled": enable.isChecked(),
+                metric: (
+                    prompts[metric][1].value(),
+                    prompts[metric][2].value()
+                )
+                for metric in measures.keys()
+                if prompts[metric][0].isChecked()
             }
         return None
 
+    def _labels_property_filter(self, layer, measures, settings):
+        data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
+        for f in range(data.shape[0]):
+            if 'Frame' in settings:
+                min_f, max_f = settings['Frame']
+                if not (min_f <= f <= max_f):
+                    data[f] = 0
+                    continue
+            ok_labels = set()
+            for metric, values in measures.items():
+                if metric not in settings:
+                    continue
+                min_val, max_val = settings[metric]
+                for idx, val in enumerate(values):
+                    if val < min_val or val > max_val:
+                        continue
+                    if measures['Frame'][idx] != f:
+                        continue
+                    ok_labels.add(measures['Label'][idx])
+            mask = np.isin(data[f], list(ok_labels)).astype(data[f].dtype)
+            data[f] = data[f] * mask
+        name = layer.name + " filtered"
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = data if layer.ndim == 4 else data[0]
+        else:
+            self.viewer.add_labels(data if layer.ndim == 4 else data[0],
+                                   name=name,
+                                   scale=layer.scale,
+                                   units=layer.units,
+                                   metadata=layer.metadata.copy())
+
     def labels_property_filter(self):
-        settings = self.ask_settings(parent=self)
+        layer = self.viewer.layers.selection.active
+        if layer is None or not hasattr(layer, "selected_label"):
+            return
+        selected_rt_name = self.choose_measures_combobox.currentText()
+        if selected_rt_name not in self.results_tables:
+            return
+        measures = self.results_tables[selected_rt_name].data_dict
+        settings = self.ask_filtering_settings(measures, self)
         if settings is None:
             return
-        print("Settings:", settings)
+        self._labels_property_filter(layer, measures, settings)
 
     def keep_largest(self):
         layer = self.viewer.layers.selection.active
@@ -384,6 +459,13 @@ class LabelsOperations(QWidget):
                 d.setdefault("Median intensity", []).append(float(np.median(props.intensity_image[props.intensity_image > 0])))
         return d
 
+    def concatenate(self, d1, d2):
+        for key in d2.keys():
+            if key in d1:
+                d1[key].extend(d2[key])
+            else:
+                d1[key] = d2[key]
+
     def measure_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
@@ -404,18 +486,24 @@ class LabelsOperations(QWidget):
                 intensity_image=None if intensities_map is None else intensities_map[f],
                 spacing=scale
             )
-            all_props.update(self.props_to_dict(props, f, use_intensities=intensities is not None))
-        from pprint import pprint
-        pprint(all_props)
+            self.concatenate(all_props, self.props_to_dict(props, f, use_intensities=intensities is not None))
+        rt = LabelsPropertiesResultsTable(all_props, layer.name + " measurements", parent=self)
+        self.results_tables[rt.windowTitle()] = rt
+        rt.show()
+        self.choose_measures_combobox.addItem(rt.windowTitle())
 
 def loose_launch():
     viewer = napari.Viewer()
     widget = LabelsOperations(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
-    # import tifffile
-    # data = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/test-labels-frames.tif')
-    # viewer.add_labels(data, name='test labels')
+    import tifffile
+
+    labels = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/test-labels-frames.tif')
+    viewer.add_labels(labels, name='test labels')
+
+    # image = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei.tif')
+    # viewer.add_image(image, name='nuclei')
 
     napari.run()
 

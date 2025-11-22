@@ -58,11 +58,11 @@ Tools
 Label maps
 ==========
 
-- [ ] Label properties filtering
+- [X] Label properties filtering
 - [X] Select label(s)
 - [X] Merge labels
 - [X] Keep largest
 - [X] Kill borders
-- [ ] Measure labels (inclu intensiti)
-- [ ] Assign measure to label
+- [X] Measure labels (includes intensity)
+- [ ] Assign measure to labels
 - [ ] Remap labels
