@@ -5,15 +5,19 @@ or scipy.
 """
 from abc import abstractmethod
 
+import numpy as np
 from PyQt5.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
 from napari.qt.threading import create_worker
 from autooptions import Options
 from autooptions import OptionsWidget
+from ddd_toolbox.lib.qtutil import TableView
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
-from ddd_toolbox.lib.image import ImageCalculator
+from ddd_toolbox.lib.image import ImageCalculator, ImageInfo
 from ddd_toolbox.lib.noise import AddGaussianNoise, AddPoissonNoise
+from ddd_toolbox.lib.measure import TableTool
+
 
 from typing import TYPE_CHECKING
 
@@ -299,5 +303,62 @@ class AddPoissonNoiseWidget(SimpleWidget):
 
 
 
+class ImageInfoWidget(SimpleWidget):
 
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+        self.data = {}
+        self.table = TableView(self.data)
+        self.tableDockWidget = None
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "image info")
+        options.addImage()
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer("image")
+        self.operation = ImageInfo(self.imageLayer)
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Reading Image Info...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = "Image Info"
+        area = "right"
+        if "Image Info" in self.viewer.window.dock_widgets.keys():
+            self.viewer.window.remove_dock_widget(self.viewer.window.dock_widgets[name])
+        TableTool.addTableAToB(self.operation.result, self.data)
+        self.operation.result = {}
+        self.table = TableView(self.data)
+        self.table.resetAction.triggered.connect(self.resetTable)
+        self.table.deleteAction.triggered.connect(self.deleteSelectedRows)
+        self.tableDockWidget = self.viewer.window.add_dock_widget(self.table,
+                                           area='right', name=name, tabify=True)
+
+
+    def resetTable(self):
+        for key in self.data.keys():
+            self.data[key] = []
+        self.displayResult()
+
+
+    def deleteSelectedRows(self):
+        indexes = self.table.selectedIndexes()
+        indexes = [index.row() for index in indexes]
+        indexes = list(set(indexes))
+        print("indexes", indexes)
+        print("type", type(indexes))
+        for key in self.data.keys():
+            data = np.array(self.data[key])
+            data = np.delete(data, indexes)
+            self.data[key] =  data.tolist()
+        self.displayResult()
 

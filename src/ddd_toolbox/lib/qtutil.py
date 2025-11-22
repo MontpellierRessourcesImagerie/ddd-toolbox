@@ -153,7 +153,7 @@ class TableView(QTableWidget):
 
     def getSelectedDataAsString(self):
         """ Get the data in the selected cells as a string. Columns are
-        separated by tabs and lines by newlines".
+        separated by tabs and lines by newlines.
         """
         copied_cells = self.selectedIndexes()
         if len(copied_cells) == 0:

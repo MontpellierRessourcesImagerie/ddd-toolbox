@@ -1,4 +1,5 @@
 import numpy as np
+from torch.nn.functional import layer_norm
 
 
 class ImageCalculator(object):
@@ -36,3 +37,24 @@ class ImageCalculator(object):
 
     def divide(self):
         self.result = np.divide(self.image1, self.image2)
+
+
+
+class ImageInfo(object):
+
+
+    def __init__(self, layer):
+        self.layer = layer
+        self.result = {}
+
+
+    def run(self):
+        self.result['name'] = [self.layer.name]
+        self.result['ndim'] = [str(self.layer.ndim)]
+        self.result['shape'] = [str(self.layer.data.shape)]
+        self.result['scale'] = [str(self.layer.scale)]
+        self.result['units'] = [str(self.layer.units)]
+        self.result['uuid'] = [str(self.layer.unique_id)]
+        self.result['path'] = [""]
+        if self.layer.source.path:
+            self.result['path'] = [self.layer.source.path]
