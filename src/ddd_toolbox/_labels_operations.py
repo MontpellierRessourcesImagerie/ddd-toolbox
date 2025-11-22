@@ -13,6 +13,7 @@ import numpy as np
 
 from skimage.segmentation import clear_border
 from skimage.measure import regionprops
+from ddd_toolbox.results_table import LabelsPropertiesResultsTable
 
 NEUTRAL = "--------"
 
@@ -356,6 +357,33 @@ class LabelsOperations(QWidget):
                                    units=layer.units,
                                    metadata=layer.metadata.copy())
 
+    def props_to_dict(self, all_props, frame, use_intensities=False):
+        d = {}
+        for props in all_props:
+            d.setdefault("Volume", []).append(props.area)
+            d.setdefault("Volume AABB", []).append(props.bbox_area)
+            d.setdefault("Centroid Z", []).append(props.centroid[0])
+            d.setdefault("Centroid Y", []).append(props.centroid[1])
+            d.setdefault("Centroid X", []).append(props.centroid[2])
+            d.setdefault("AABB depth", []).append(props.bbox[3] - props.bbox[0])
+            d.setdefault("AABB height", []).append(props.bbox[4] - props.bbox[1])
+            d.setdefault("AABB width", []).append(props.bbox[5] - props.bbox[2])
+            d.setdefault("Volume convex", []).append(props.convex_area)
+            d.setdefault("Major axis length", []).append(props.major_axis_length)
+            d.setdefault("Minor axis length", []).append(props.minor_axis_length)
+            d.setdefault("Equivalent diameter", []).append(props.equivalent_diameter)
+            d.setdefault("Solidity", []).append(props.solidity)
+            d.setdefault("Label", []).append(props.label)
+            d.setdefault("Frame", []).append(frame)
+            if use_intensities:
+                d.setdefault("Mean intensity", []).append(props.intensity_mean)
+                d.setdefault("Max intensity", []).append(props.intensity_max)
+                d.setdefault("Min intensity", []).append(props.intensity_min)
+                d.setdefault("Integrated intensity", []).append(float(np.sum(props.intensity_image[props.intensity_image > 0])))
+                d.setdefault("Intensity std. dev.", []).append(props.intensity_std)
+                d.setdefault("Median intensity", []).append(float(np.median(props.intensity_image[props.intensity_image > 0])))
+        return d
+
     def measure_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
@@ -366,7 +394,7 @@ class LabelsOperations(QWidget):
             return
         labels_map = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         intensities_map = None if intensities is None else (intensities if intensities.ndim == 4 else intensities[np.newaxis, ...])
-        all_props = []
+        all_props = {}
         scale = layer.scale if self.use_physical_units_check.isChecked() else None
         if scale is not None:
             scale = scale if layer.data.ndim == 3 else scale[1:]
@@ -376,7 +404,9 @@ class LabelsOperations(QWidget):
                 intensity_image=None if intensities_map is None else intensities_map[f],
                 spacing=scale
             )
-            all_props.append(props)
+            all_props.update(self.props_to_dict(props, f, use_intensities=intensities is not None))
+        from pprint import pprint
+        pprint(all_props)
 
 def loose_launch():
     viewer = napari.Viewer()
