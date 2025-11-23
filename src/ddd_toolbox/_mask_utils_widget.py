@@ -12,11 +12,31 @@ from napari.utils import Colormap
 
 import numpy as np
 
-from skimage.filters import threshold_li, threshold_mean, threshold_otsu, threshold_triangle, threshold_yen
+from skimage.segmentation import watershed
+from skimage.morphology import reconstruction
+from skimage.filters import (threshold_li, threshold_mean, 
+                             threshold_otsu, threshold_triangle, 
+                             threshold_yen)
 from skimage.measure import label
-from scipy.ndimage import distance_transform_edt, grey_closing, grey_opening, white_tophat, black_tophat
+from scipy.ndimage import (distance_transform_edt, grey_closing, 
+                           grey_opening, white_tophat, black_tophat, 
+                           binary_closing, binary_opening, binary_erosion, 
+                           binary_dilation, binary_fill_holes)
 
 NEUTRAL = "--------"
+
+def generate_lut_threshold():
+    colors = [
+        (1.0, 0.0, 0.0, 1.0),
+        (1.0, 0.0, 0.0, 1.0),
+        (1.0, 0.0, 0.0, 1.0)
+    ]
+    return Colormap(
+        colors=colors, 
+        low_color=(0, 0, 0, 0), 
+        high_color=(0, 0, 0, 0),
+        interpolation='zero',
+        name='Threshold')
 
 class MaskUtils(QWidget):
     def __init__(self, viewer):
@@ -34,6 +54,7 @@ class MaskUtils(QWidget):
             "Ball": self.ball,
             "Cube": self.cube
         }
+        self.threshold_lut = generate_lut_threshold()
         self.init_ui()
 
         self.refresh_layer_names()
@@ -58,6 +79,7 @@ class MaskUtils(QWidget):
         self.lower_spin = QDoubleSpinBox()
         self.lower_spin.setRange(-1e10, 1e10)
         self.lower_spin.setValue(0.0)
+        self.lower_spin.valueChanged.connect(self.on_bound_change)
         self.lower_spin.setPrefix("Low ")
         h_layout.addWidget(self.lower_spin)
 
@@ -65,12 +87,14 @@ class MaskUtils(QWidget):
         self.upper_spin.setRange(-1e10, 1e10)
         self.upper_spin.setValue(1.0)
         self.upper_spin.setPrefix("High ")
+        self.upper_spin.valueChanged.connect(self.on_bound_change)
         h_layout.addWidget(self.upper_spin)
 
         threshold_layout.addLayout(h_layout)
 
         self.dark_bg_check = QCheckBox("Dark Background")
         self.dark_bg_check.setChecked(True)
+        self.lut = lambda: self.threshold_lut
         self.dark_bg_check.stateChanged.connect(self.on_dark_bg_update)
         threshold_layout.addWidget(self.dark_bg_check)
 
@@ -86,6 +110,9 @@ class MaskUtils(QWidget):
         self.apply_button = QPushButton("Threshold")
         self.apply_button.clicked.connect(self.apply_threshold)
         h_layout.addWidget(self.apply_button)
+        self.reset_threshold_button = QPushButton("Reset")
+        self.reset_threshold_button.clicked.connect(self.clear_lut)
+        h_layout.addWidget(self.reset_threshold_button)
         threshold_layout.addLayout(h_layout)
 
         layout.addWidget(threshold_group)
@@ -117,6 +144,7 @@ class MaskUtils(QWidget):
 
         self.kernel_info_label = QLabel("")
         transforms_layout.addWidget(self.kernel_info_label)
+        self.update_kernel_info()
 
         transforms_layout.addSpacing(10)
 
@@ -162,6 +190,12 @@ class MaskUtils(QWidget):
         self.dilation_button.clicked.connect(self.binary_dilation)
         transforms_layout.addLayout(h_layout)
 
+        transforms_layout.addSpacing(10)
+
+        self.fill_holes_button = QPushButton("Fill Holes")
+        self.fill_holes_button.clicked.connect(self.fill_holes)
+        transforms_layout.addWidget(self.fill_holes_button)
+
         self.update_kernel_info()
 
     def init_labeling_ui(self, layout):
@@ -193,7 +227,19 @@ class MaskUtils(QWidget):
         labeling_layout.addLayout(h_layout)
 
         layout.addWidget(labeling_group)
-    
+
+    def on_bound_change(self):
+        l = self.lower_spin.value()
+        u = self.upper_spin.value()
+        if l > u:
+            self.upper_spin.setValue(l)
+            u = l
+            # return
+        layer = self.viewer.layers.selection.active
+        if layer is not None:
+            layer.contrast_limits = (l-1e-2, u+1e-2)
+            layer.colormap = self.lut()
+
     def on_method_update(self):
         if self.method_combobox.currentText() == "Manual":
             self.lower_spin.setEnabled(True)
@@ -206,13 +252,28 @@ class MaskUtils(QWidget):
             return
         self.lower_spin.setValue(l)
         self.upper_spin.setValue(u)
+        layer = self.viewer.layers.selection.active
+        if layer is not None:
+            if "Threshold" not in layer.colormap.name:
+                layer.metadata['colormap'] = layer.colormap.name
+            layer.colormap = self.lut()
     
     def on_dark_bg_update(self):
         l, u = self.compute_threshold()
         if l is None or u is None:
             return
+        layer = self.viewer.layers.selection.active
+        if layer is not None:
+            if "Threshold" not in layer.colormap.name:
+                layer.metadata['colormap'] = layer.colormap.name
+            layer.colormap = self.lut()
         self.lower_spin.setValue(l)
         self.upper_spin.setValue(u)
+
+    def clear_lut(self):
+        layer = self.viewer.layers.selection.active
+        if layer is not None:
+            layer.colormap = layer.metadata.get('colormap', 'gray')
 
     def compute_threshold(self, f=-1):
         layer = self.viewer.layers.selection.active
@@ -246,6 +307,7 @@ class MaskUtils(QWidget):
             u = self.upper_spin.value()
             mask = (data >= l) & (data <= u)
         name = layer.name + f" {self.method_combobox.currentText()} mask"
+        layer.colormap = layer.metadata.get('colormap', 'gray')
         if name in self.viewer.layers:
             self.viewer.layers[name].data = mask.astype(np.uint8)
         else:
@@ -347,7 +409,42 @@ class MaskUtils(QWidget):
         return kernel
         
     def apply_seeded_watershed(self):
-        pass
+        layer = self.viewer.layers.selection.active
+        if layer is None:
+            return
+        data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
+        seeds_name = self.seeds_combobox.currentText()
+        if seeds_name not in self.viewer.layers:
+            return
+        seeds_layer = self.viewer.layers[seeds_name]
+        if not hasattr(seeds_layer, 'symbol'):
+            return
+        if layer.ndim != seeds_layer.ndim:
+            return
+        seeds = seeds_layer.data
+        all_labeled = np.zeros_like(data, dtype=np.uint16)
+        for frame_idx in range(data.shape[0]):
+            frame = data[frame_idx]
+            markers = np.zeros_like(frame, dtype=np.uint8)
+            label = 1
+            for coordinate in seeds:
+                coord3d = tuple(int(c) for c in coordinate[-3:])
+                if layer.ndim == 4 and coordinate[0] != frame_idx:
+                    continue
+                markers[coord3d] = label
+                label += 1
+            labeled = watershed(frame, markers, mask=(frame > 0))
+            all_labeled[frame_idx] = labeled
+
+        name = layer.name + f" seeded watershed"
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = all_labeled if layer.ndim == 4 else all_labeled[0]
+        else:
+            self.viewer.add_labels(all_labeled if layer.ndim == 4 else all_labeled[0],
+                                  name=name,
+                                  scale=layer.scale,
+                                  units=layer.units,
+                                  metadata=layer.metadata.copy())
 
     def euclidean_distance_transform(self):
         layer = self.viewer.layers.selection.active
@@ -458,9 +555,9 @@ class MaskUtils(QWidget):
         if data.ndim == 4:
             closed_data = np.zeros(data.shape, dtype=data.dtype)
             for f in range(data.shape[0]):
-                closed_data[f] = grey_closing(data[f], footprint=kernel).astype(data.dtype)
+                closed_data[f] = binary_closing(data[f], structure=kernel, border_value=1).astype(data.dtype)
         else:
-            closed_data = grey_closing(data, footprint=kernel).astype(data.dtype)
+            closed_data = binary_closing(data, structure=kernel, border_value=1).astype(data.dtype)
         name = layer.name + " binary closing"
         if name in self.viewer.layers:
             self.viewer.layers[name].data = closed_data
@@ -478,9 +575,9 @@ class MaskUtils(QWidget):
         if data.ndim == 4:
             opened_data = np.zeros(data.shape, dtype=data.dtype)
             for f in range(data.shape[0]):
-                opened_data[f] = grey_opening(data[f], footprint=kernel).astype(data.dtype)
+                opened_data[f] = binary_opening(data[f], structure=kernel, border_value=0).astype(data.dtype)
         else:
-            opened_data = grey_opening(data, footprint=kernel).astype(data.dtype)
+            opened_data = binary_opening(data, structure=kernel, border_value=0).astype(data.dtype)
         name = layer.name + " binary opening"
         if name in self.viewer.layers:
             self.viewer.layers[name].data = opened_data
@@ -498,9 +595,9 @@ class MaskUtils(QWidget):
         if data.ndim == 4:
             eroded_data = np.zeros(data.shape, dtype=data.dtype)
             for f in range(data.shape[0]):
-                eroded_data[f] = grey_opening(data[f], footprint=kernel).astype(data.dtype)
+                eroded_data[f] = binary_erosion(data[f], structure=kernel, border_value=1).astype(data.dtype)
         else:
-            eroded_data = grey_opening(data, footprint=kernel).astype(data.dtype)
+            eroded_data = binary_erosion(data, structure=kernel, border_value=1).astype(data.dtype)
         name = layer.name + " binary erosion"
         if name in self.viewer.layers:
             self.viewer.layers[name].data = eroded_data
@@ -518,20 +615,70 @@ class MaskUtils(QWidget):
         if data.ndim == 4:
             dilated_data = np.zeros(data.shape, dtype=data.dtype)
             for f in range(data.shape[0]):
-                dilated_data[f] = grey_closing(data[f], footprint=kernel).astype(data.dtype)
+                dilated_data[f] = binary_dilation(data[f], structure=kernel, border_value=0).astype(data.dtype)
         else:
-            dilated_data = grey_closing(data, footprint=kernel).astype(data.dtype)
+            dilated_data = binary_dilation(data, structure=kernel, border_value=0).astype(data.dtype)
         name = layer.name + " binary dilation"
         if name in self.viewer.layers:
             self.viewer.layers[name].data = dilated_data
         else:
             self.viewer.add_labels(dilated_data, name=name, scale=layer.scale, units=layer.units)
+    
+    def fill_holes(self):
+        layer = self.viewer.layers.selection.active
+        if layer is None or not hasattr(layer, 'colormap'):
+            return
+        data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
+        filled_data = np.zeros_like(data)
+        for f in range(data.shape[0]):
+            frame = data[f]
+            lbl_list = np.unique(frame)
+            for lbl in lbl_list:
+                if lbl == 0:
+                    continue
+                mask = frame == lbl
+                filled_mask = binary_fill_holes(mask).astype(frame.dtype) * lbl
+                filled_data[f] = np.maximum(filled_data[f], filled_mask)
+        name = layer.name + " filled holes"
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = filled_data if layer.ndim == 4 else filled_data[0]
+        else:
+            self.viewer.add_labels(filled_data if layer.ndim == 4 else filled_data[0], name=name, scale=layer.scale, units=layer.units)
 
 
 def loose_launch():
     viewer = napari.Viewer()
     widget = MaskUtils(viewer=viewer)
     viewer.window.add_dock_widget(widget)
+
+    import tifffile
+
+    mask = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei-mask.tif')
+    viewer.add_labels(mask, name='nuclei mask')
+
+    points = np.array([
+        [ 31., 249., 201.],
+        [ 32., 200., 167.],
+        [ 33., 219., 249.],
+        [ 33., 235., 126.],
+        [ 34.,  78., 118.],
+        [ 34., 183.,  48.],
+        [ 34., 219.,  82.],
+        [ 35.,  46., 228.],
+        [ 35.,  99., 160.],
+        [ 35., 146., 190.],
+        [ 35., 146., 244.],
+        [ 35., 159., 109.],
+        [ 36.,   0.,  81.],
+        [ 36.,  10.,  19.],
+        [ 36.,  14., 155.],
+        [ 36.,  35.,  75.],
+        [ 36.,  47., 182.],
+        [ 37., 140.,  35.],
+        [ 54.,  85.,  50.]
+    ])
+
+    viewer.add_points(points, name='test points', size=5, symbol='cross')
 
     napari.run()
 

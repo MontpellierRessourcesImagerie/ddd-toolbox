@@ -46,9 +46,13 @@ class LabelsOperations(QWidget):
         self.layer_pools.append((self.select_labels_points_combobox, "symbol"))
         h_layout.addWidget(self.select_labels_points_combobox)
 
-        self.select_labels_button = QPushButton("Select labels")
-        self.select_labels_button.clicked.connect(self.select_labels)
+        self.select_labels_button = QPushButton("Keep labels")
+        self.select_labels_button.clicked.connect(lambda: self.select_labels(mode='keep'))
         h_layout.addWidget(self.select_labels_button)
+
+        self.remove_labels_button = QPushButton("Remove labels")
+        self.remove_labels_button.clicked.connect(lambda: self.select_labels(mode='remove'))
+        h_layout.addWidget(self.remove_labels_button)
         
         layout.addLayout(h_layout)
 
@@ -79,6 +83,7 @@ class LabelsOperations(QWidget):
         h_layout.addWidget(self.remap_individual_check)
 
         self.remap_labels_button = QPushButton("Remap labels")
+        self.remap_labels_button.clicked.connect(self.remap_labels)
         h_layout.addWidget(self.remap_labels_button)
         layout.addLayout(h_layout)
 
@@ -100,8 +105,21 @@ class LabelsOperations(QWidget):
 
         layout.addLayout(h_layout)
 
-        self.assign_measure_button = QPushButton("Assign measurement to labels")
-        layout.addWidget(self.assign_measure_button)
+        h_layout = QHBoxLayout()
+
+        self.measure_assign_combobox = QComboBox()
+        h_layout.addWidget(self.measure_assign_combobox)
+
+        self.target_metric_combobox = QComboBox()
+        h_layout.addWidget(self.target_metric_combobox)
+
+        self.assign_measure_button = QPushButton("Assign metric")
+        self.assign_measure_button.clicked.connect(self.assign_measure)
+        h_layout.addWidget(self.assign_measure_button)
+        
+        self.measure_assign_combobox.currentIndexChanged.connect(self.update_target_metrics)
+
+        layout.addLayout(h_layout)
 
         h_layout = QHBoxLayout()
 
@@ -112,6 +130,14 @@ class LabelsOperations(QWidget):
         self.labels_property_filter_button.clicked.connect(self.labels_property_filter)
         h_layout.addWidget(self.labels_property_filter_button)
         layout.addLayout(h_layout)
+
+    def update_target_metrics(self):
+        self.target_metric_combobox.clear()
+        selected_rt_name = self.measure_assign_combobox.currentText()
+        if selected_rt_name not in self.results_tables:
+            return
+        measures = self.results_tables[selected_rt_name].data_dict
+        self.target_metric_combobox.addItems(list(measures.keys()))
     
     def _get_layer_names(self, ppt):
         try:
@@ -287,15 +313,17 @@ class LabelsOperations(QWidget):
         except Exception:
             return None
 
-    def _select_labels(self, data, frame_labels):
+    def _select_labels(self, data, frame_labels, mode):
         filtered = [np.zeros_like(data)] if data.ndim == 3 else np.zeros_like(data)
         input_data = [data] if data.ndim == 3 else data
         for frame_idx, labels in enumerate(frame_labels):
             mask = np.isin(input_data[frame_idx], list(labels)).astype(input_data[frame_idx].dtype)
+            if mode != 'keep':
+                mask = 1 - mask
             filtered[frame_idx] = input_data[frame_idx] * mask
         return filtered if data.ndim == 4 else np.concatenate(filtered, axis=0)
 
-    def select_labels(self):
+    def select_labels(self, mode='keep'):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
             return
@@ -303,14 +331,15 @@ class LabelsOperations(QWidget):
         frame_labels = []
         # If not point layer is selected, we ask for labels
         if points_name == NEUTRAL:
-            txt_labels = QInputDialog.getText(self, 'Select labels', 'Enter labels to select (comma separated):')
+            txt_labels = QInputDialog.getText(
+                self, 
+                'Select labels' if mode == 'keep' else 'Remove labels', 
+                'Enter labels to select (comma separated):' if mode == 'keep' else 'Enter labels to remove (comma separated):'
+            )
             labels = self.list_to_integers(txt_labels[0])
             if labels is None:
                 return
-            if layer.ndim == 4:
-                frame_labels = [labels for _ in range(layer.data.shape[0])]
-            else:
-                frame_labels = [labels]
+            frame_labels = [labels for _ in range(layer.data.shape[0])] if layer.ndim == 4 else [labels]
         else:
             points_layer = self.viewer.layers[points_name]
             if points_layer is None or points_layer.ndim != layer.ndim:
@@ -332,8 +361,8 @@ class LabelsOperations(QWidget):
                     if lbl != 0:
                         labels.add(lbl)
                 frame_labels.append(labels)
-        filtered = self._select_labels(layer.data, frame_labels)
-        name = layer.name + " selected labels"
+        filtered = self._select_labels(layer.data, frame_labels, mode)
+        name = layer.name + (" kept" if mode == 'keep' else " removed")
         if name in self.viewer.layers:
             self.viewer.layers[name].data = filtered
         else:
@@ -487,10 +516,72 @@ class LabelsOperations(QWidget):
                 spacing=scale
             )
             self.concatenate(all_props, self.props_to_dict(props, f, use_intensities=intensities is not None))
-        rt = LabelsPropertiesResultsTable(all_props, layer.name + " measurements", parent=self)
+        name = layer.name + " measurements"
+        index = 1
+        while name in self.results_tables:
+            name = layer.name + f" measurements ({index})"
+            index += 1
+        rt = LabelsPropertiesResultsTable(all_props, name, parent=self)
         self.results_tables[rt.windowTitle()] = rt
         rt.show()
         self.choose_measures_combobox.addItem(rt.windowTitle())
+        self.measure_assign_combobox.addItem(rt.windowTitle())
+    
+    def assign_measure(self):
+        layer = self.viewer.layers.selection.active
+        if layer is None or not hasattr(layer, "selected_label"):
+            return
+        selected_rt_name = self.measure_assign_combobox.currentText()
+        if selected_rt_name not in self.results_tables:
+            return
+        measures = self.results_tables[selected_rt_name].data_dict
+        target_metric = self.target_metric_combobox.currentText()
+        if target_metric not in measures:
+            return
+        data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
+        assigned = np.zeros_like(data, dtype=np.float32)
+        for f in range(data.shape[0]):
+            mapping = {label: value for label, frame, value in zip(measures['Label'], measures['Frame'], measures[target_metric]) if frame == f}
+            for lbl, val in mapping.items():
+                assigned[f][data[f] == lbl] = val
+        name = layer.name + f" assigned {target_metric}"
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = assigned if layer.ndim == 4 else assigned[0]
+        else:
+            self.viewer.add_image(assigned if layer.ndim == 4 else assigned[0],
+                                  name=name,
+                                  scale=layer.scale,
+                                  units=layer.units,
+                                  metadata=layer.metadata.copy())
+    
+    def remap_labels(self):
+        layer = self.viewer.layers.selection.active
+        if layer is None or not hasattr(layer, "selected_label"):
+            return
+        data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
+        remapped = np.zeros_like(data)
+        if self.remap_individual_check.isChecked():
+            for f in range(data.shape[0]):
+                unique_labels = np.unique(data[f])
+                unique_labels = unique_labels[unique_labels != 0]
+                label_map = {old_lbl: new_lbl for new_lbl, old_lbl in enumerate(unique_labels, start=1)}
+                for old_lbl, new_lbl in label_map.items():
+                    remapped[f][data[f] == old_lbl] = new_lbl
+        else:
+            unique_labels = np.unique(data)
+            unique_labels = unique_labels[unique_labels != 0]
+            label_map = {old_lbl: new_lbl for new_lbl, old_lbl in enumerate(unique_labels, start=1)}
+            for old_lbl, new_lbl in label_map.items():
+                remapped[data == old_lbl] = new_lbl
+        name = layer.name + " remapped"
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = remapped if layer.ndim == 4 else remapped[0]
+        else:
+            self.viewer.add_labels(remapped if layer.ndim == 4 else remapped[0],
+                                   name=name,
+                                   scale=layer.scale,
+                                   units=layer.units,
+                                   metadata=layer.metadata.copy())
 
 def loose_launch():
     viewer = napari.Viewer()
@@ -501,9 +592,6 @@ def loose_launch():
 
     labels = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/test-labels-frames.tif')
     viewer.add_labels(labels, name='test labels')
-
-    # image = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei.tif')
-    # viewer.add_image(image, name='nuclei')
 
     napari.run()
 

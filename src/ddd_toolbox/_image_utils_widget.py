@@ -1,10 +1,12 @@
 import os
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QTabWidget,
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QInputDialog,
                             QGroupBox, QHBoxLayout, QLabel, QToolButton, QButtonGroup,
                             QComboBox, QCheckBox, QLineEdit, QSpinBox,
                             QPushButton, QFileDialog, QDoubleSpinBox
 )
 from qtpy.QtCore import Qt, QThread
+
+from scipy.ndimage import zoom
 
 import napari
 from napari.utils import progress
@@ -28,18 +30,17 @@ QToolButton:checked {
 }
 """
 
-def perm_with_spatial(nd, axes):
-    perm = list(range(nd))
-    base_positions = sorted(axes)
-    for pos, ax in zip(base_positions, axes):
-        perm[pos] = ax
-    return perm
+NEUTRAL = "---------"
 
 class ImageUtilsWidget(QWidget):
     def __init__(self, viewer):
         super().__init__()
         self.viewer = viewer
+        self.layer_pools = []
         self.init_ui()
+        self.viewer.layers.events.inserted.connect(lambda e: self.refresh_layer_names())
+        self.viewer.layers.events.removed.connect(lambda e: self.refresh_layer_names())
+        self.viewer.layers.events.reordered.connect(lambda e: self.refresh_layer_names())
     
     def init_ui(self):
         layout = QVBoxLayout()
@@ -108,57 +109,25 @@ class ImageUtilsWidget(QWidget):
         layout.addSpacing(gap)
 
         # RESAMPLE ISOTROPIC
+        h_layout = QHBoxLayout()
+        self.interpolate_resample_checkbox = QCheckBox("Interpolate")
+        self.interpolate_resample_checkbox.setChecked(True)
+        h_layout.addWidget(self.interpolate_resample_checkbox)
         self.resample_button = QPushButton("Resample isotropic")
-        layout.addWidget(self.resample_button)
-
-        layout.addSpacing(gap)
-
-        # HARD TRANSFORMATIONS
-        self.group_transforms = QGroupBox("Transforms")
-        v_layout = QVBoxLayout()
-        self.group_transforms.setLayout(v_layout)
+        self.resample_button.clicked.connect(self.apply_resample_isotropic)
+        h_layout.addWidget(self.resample_button)
+        layout.addLayout(h_layout)
 
         h_layout = QHBoxLayout()
-        self.scale_z = QDoubleSpinBox()
-        self.scale_z.setPrefix("Z:")
-        self.scale_z.setValue(1.0)
-        h_layout.addWidget(self.scale_z)
-
-        self.scale_y = QDoubleSpinBox()
-        self.scale_y.setPrefix("Y:")
-        self.scale_y.setValue(1.0)
-        h_layout.addWidget(self.scale_y)
-
-        self.scale_x = QDoubleSpinBox()
-        self.scale_x.setPrefix("X:")
-        self.scale_x.setValue(1.0)
-        h_layout.addWidget(self.scale_x)
-
-        self.transform_button = QPushButton("Scale")
-        h_layout.addWidget(self.transform_button)
-        v_layout.addLayout(h_layout)
-
-        h_layout = QHBoxLayout()
-        self.rotate_z = QDoubleSpinBox()
-        self.rotate_z.setPrefix("Z:")
-        self.rotate_z.setValue(0.0)
-        h_layout.addWidget(self.rotate_z)
-
-        self.rotate_y = QDoubleSpinBox()
-        self.rotate_y.setPrefix("Y:")
-        self.rotate_y.setValue(0.0)
-        h_layout.addWidget(self.rotate_y)
-
-        self.rotate_x = QDoubleSpinBox()
-        self.rotate_x.setPrefix("X:")
-        self.rotate_x.setValue(0.0)
-        h_layout.addWidget(self.rotate_x)
-
-        self.rotate_button = QPushButton("Rotate")
-        h_layout.addWidget(self.rotate_button)
-        v_layout.addLayout(h_layout)
-
-        layout.addWidget(self.group_transforms)
+        self.translate_checkbox = QCheckBox("Translate")
+        h_layout.addWidget(self.translate_checkbox)
+        self.crop_selection_combobox = QComboBox()
+        self.layer_pools.append((self.crop_selection_combobox, "shape_type"))
+        h_layout.addWidget(self.crop_selection_combobox)
+        self.crop_to_selection_button = QPushButton("Crop")
+        h_layout.addWidget(self.crop_to_selection_button)
+        layout.addLayout(h_layout)
+        self.crop_to_selection_button.clicked.connect(self.crop_to_selection)
 
     def split_axis(self):
         a = int(self.axis_spin.value())
@@ -238,6 +207,38 @@ class ImageUtilsWidget(QWidget):
         layer.data = norm_data.astype(target_type)
         layer.contrast_limits = (0, target_max)
 
+    def view_along_axis(self, img, axis: str):
+        if img.ndim != 3:
+            raise ValueError("Input image must be 3D (Z, Y, X).")
+
+        axis = axis.upper().replace(" ", "")
+        if axis not in ["+Z", "-Z", "+Y", "-Y", "+X", "-X"]:
+            raise ValueError("Axis must be one of: +Z, -Z, +Y, -Y, +X, -X")
+
+        if axis == "+Z":
+            return img
+
+        if axis == "-Z":
+            return img[::-1, :, :]
+
+        if axis == "+Y":
+            out = np.swapaxes(img, 0, 1) # (Y, Z, X)
+            return out
+
+        if axis == "-Y":
+            out = np.swapaxes(img, 0, 1) # (Y, Z, X)
+            return out[::-1, :, :] # flip along first axis
+
+        if axis == "+X":
+            out = np.swapaxes(img, 0, 2) # (X, Y, Z)
+            return out
+
+        if axis == "-X":
+            out = np.swapaxes(img, 0, 2) # (X, Y, Z)
+            return out[::-1, :, :]
+
+        return img
+
     def reslice(self):
         selected_button = self.group_reslice.checkedButton()
         if selected_button is None:
@@ -246,39 +247,194 @@ class ImageUtilsWidget(QWidget):
         layer = self.viewer.layers.selection.active
         if layer is None:
             return
-        v = layer.data
-        nd = v.ndim
-        z_ax, y_ax, x_ax = nd - 3, nd - 2, nd - 1
+        all_data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
+        transformed = []
+        z_ax, y_ax, x_ax = -3, -2, -1
+        new_scale = list(layer.scale)
 
-        if direction == '+Z':
-            layer.data = v  # No change
+        # Determine new scale and units based on direction
+        new_units = list(layer.units)
+        new_scale = list(layer.scale)
+        if direction in ["+Z", "-Z"]:
+            pass
+        elif direction in ["+Y", "-Y"]:
+            new_scale[z_ax] = layer.scale[y_ax]
+            new_units[z_ax] = layer.units[y_ax]
+            # New Y scale is old Z scale
+            new_scale[y_ax] = layer.scale[z_ax]
+            new_units[y_ax] = layer.units[z_ax]
+        elif direction in ["+X", "-X"]:
+            # New Z scale is old X scale
+            new_scale[z_ax] = layer.scale[x_ax]
+            new_units[z_ax] = layer.units[x_ax]
+            # New X scale is old Z scale
+            new_scale[x_ax] = layer.scale[z_ax]
+            new_units[x_ax] = layer.units[z_ax]
 
-        elif direction == '-Z':
-            layer.data = np.flip(v, axis=z_ax)
+        for frame_idx in range(all_data.shape[0]):
+            v = all_data[frame_idx]
+            t = self.view_along_axis(v, direction)
+            transformed.append(t)
 
-        elif direction == '+Y':
-            perm = perm_with_spatial(nd, [y_ax, z_ax, x_ax])
-            layer.data = np.transpose(v, axes=perm)
+        result = np.stack(transformed, axis=0)
+        name = f"{layer.name} resliced {direction}"
 
-        elif direction == '-Y':
-            v2 = np.flip(v, axis=y_ax)
-            perm = perm_with_spatial(nd, [y_ax, z_ax, x_ax])
-            layer.data = np.transpose(v2, axes=perm)
-            layer.scale = tuple(layer.scale[i] for i in range(nd) if i != y_ax) + (layer.scale[y_ax],)
-            layer.units = tuple(layer.units[i] for i in range(nd) if i != y_ax) + (layer.units[y_ax],)
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = result if layer.ndim == 4 else result[0]
+        else:
+            self.viewer.add_image(
+                result if layer.ndim == 4 else result[0],
+                name=name,
+                scale=new_scale,
+                units=new_units,
+                blending='additive',
+                metadata=layer.metadata.copy()
+            )
 
-        elif direction == '+X':
-            perm = perm_with_spatial(nd, [x_ax, y_ax, z_ax])
-            layer.data = np.transpose(v, axes=perm)
-            layer.scale = tuple(layer.scale[i] for i in range(nd) if i != x_ax) + (layer.scale[x_ax],)
-            layer.units = tuple(layer.units[i] for i in range(nd) if i != x_ax) + (layer.units[x_ax],)
+    def isotropic_resample(self, img, spacing):
+        if img.ndim != 3:
+            raise ValueError("Input image must be 3D (Z, Y, X).")
+        sz, sy, sx = spacing
+        spacing = np.asarray([sz, sy, sx], dtype=float)
+        iso = spacing.min()
+        scale = spacing / iso
+        new_shape = np.round(np.array(img.shape) * scale).astype(int)
+        zoom_factors = new_shape / np.array(img.shape, dtype=float)
+        out = zoom(img, zoom_factors, order=1 if self.interpolate_resample_checkbox.isChecked() else 0)
+        return out, iso
 
-        elif direction == '-X':
-            v2 = np.flip(v, axis=x_ax)
-            perm = perm_with_spatial(nd, [x_ax, y_ax, z_ax])
-            layer.data = np.transpose(v2, axes=perm)
-            layer.scale = tuple(layer.scale[i] for i in range(nd) if i != x_ax) + (layer.scale[x_ax],)
-            layer.units = tuple(layer.units[i] for i in range(nd) if i != x_ax) + (layer.units[x_ax],)
+    def apply_resample_isotropic(self):
+        layer = self.viewer.layers.selection.active
+        if layer is None:
+            return
+        data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
+        scale = layer.scale[-3:]
+        transformed = []
+
+        iso = 1
+        for frame_idx in range(data.shape[0]):
+            v = data[frame_idx]
+            t, iso = self.isotropic_resample(v, scale)
+            transformed.append(t)
+
+        result = np.stack(transformed, axis=0)
+        new_scale = list(layer.scale)
+        new_scale[-3:] = [iso, iso, iso]
+        name = f"{layer.name} resampled isotropic"
+
+        if name in self.viewer.layers:
+            self.viewer.layers[name].data = result if layer.ndim == 4 else result[0]
+        else:
+            self.viewer.add_image(
+                result if layer.ndim == 4 else result[0],
+                name=name,
+                scale=new_scale,
+                units=layer.units,
+                blending='additive',
+                metadata=layer.metadata.copy()
+            )
+
+    def get_range_from_text(self, default, text, lower, upper):
+        values = text.split('-')
+        if len(values) != 2:
+            return default
+        try:
+            start = int(values[0].strip())
+            end = int(values[1].strip())
+        except Exception:
+            return default
+        if start < lower or end > upper or start > end:
+            return default
+        return (start, end)
+    
+    def crop_to_selection(self):
+        layer = self.viewer.layers.selection.active
+        if layer is None or not hasattr(layer, "colormap"):
+            return
+        data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
+        shape_name = self.crop_selection_combobox.currentText()
+        if shape_name not in self.viewer.layers:
+            return
+        shape_layer = self.viewer.layers[shape_name]
+        if shape_layer.ndim != layer.ndim:
+            return
+        true_len = min(len(shape_layer.data), len(shape_layer.shape_type))
+        stype = shape_layer.shape_type[true_len-1]
+        if stype != "rectangle":
+            return
+        target_range = (1, data.shape[0])
+        if layer.ndim == 4:
+            txt_labels = QInputDialog.getText(self,  'Range of frames', 'Enter the interval of frames to crop (start-end):', text=f"1-{data.shape[0]}")
+            if txt_labels[1]:
+                target_range = self.get_range_from_text((1, data.shape[0]), txt_labels[0], 1, data.shape[0])
+        rect = shape_layer.data[true_len-1].T
+        min_y = min(rect[-2])
+        max_y = max(rect[-2])
+        min_x = min(rect[-1])
+        max_x = max(rect[-1])
+        if min_x < 0:
+            min_x = 0
+        if min_y < 0:
+            min_y = 0
+        if max_x > layer.data.shape[-1]:
+            max_x = layer.data.shape[-1]
+        if max_y > layer.data.shape[-2]:
+            max_y = layer.data.shape[-2]
+        transformed = []
+        for frame_idx in range(data.shape[0]):
+            v = data[frame_idx]
+            t = v[..., int(min_y):int(max_y), int(min_x):int(max_x)]
+            transformed.append(t)
+        transformed = transformed[target_range[0]-1:target_range[1]]
+        result = np.stack(transformed, axis=0)
+        name = f"{layer.name} cropped"
+        if name in self.viewer.layers:
+            l = self.viewer.layers[name]
+            l.data = result if layer.ndim == 4 else result[0]
+        else:
+            l = self.viewer.add_image(
+                result if layer.ndim == 4 else result[0],
+                name=name,
+                scale=layer.scale,
+                units=layer.units,
+                blending='additive',
+                metadata=layer.metadata.copy()
+            )
+        if self.translate_checkbox.isChecked():
+            translation = [0 for _ in range(l.ndim)]
+            translation[-2] = min_y
+            translation[-1] = min_x
+            l.translate = translation
+
+    def _get_layer_names(self, ppt):
+        try:
+            return [ly.name for ly in self.viewer.layers if hasattr(ly, ppt)]
+        except Exception:
+            return []
+
+    def _set_combo_safely(self, combo: QComboBox, text: str):
+        idx = combo.findText(text)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        else:
+            # fall back to neutral
+            combo.setCurrentIndex(0)
+
+    def _populate_layer_combo(self, pair: QComboBox, neutral=NEUTRAL):
+        combo, ppt = pair
+        current = combo.currentText()
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(neutral)
+        for name in self._get_layer_names(ppt):
+            combo.addItem(name)
+        self._set_combo_safely(combo, current)
+        combo.blockSignals(False)
+
+    def refresh_layer_names(self):
+        """Call this to refresh all comboboxes with current viewer layers."""
+        for combo in self.layer_pools:
+            self._populate_layer_combo(combo, neutral=NEUTRAL)
 
 
 def loose_launch():

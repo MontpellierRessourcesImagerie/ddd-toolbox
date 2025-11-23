@@ -81,7 +81,7 @@ class ResultsTable(QMainWindow):
 
 # ====> The first result table contains the visibility and the centroid.
 
-def scientific_gradient_lut(n=512):
+def gradient_lut(n=512):
     """
     Create a custom multi-color RGBA LUT (similar vibe to viridis/fire)
     """
@@ -105,22 +105,53 @@ def scientific_gradient_lut(n=512):
     # Interpolate
     for c in range(4):
         lut[:, c] = np.interp(x, stops, colors[:, c]).astype(np.uint8)
+    
+    return lut
 
+def viridis_like_lut(n=256, alpha=255):
+    """
+    Build a viridis-like RGBA LUT (n, 4) uint8 using linear interpolation
+    between a few key colors:
+        deep purple -> teal/duck -> green -> yellow
+    """
+    # Positions of the anchor colors along the gradient [0..1]
+    stops = np.array([0.0, 0.33, 0.66, 1.0], dtype=float)
+
+    # Anchor colors in RGBA (0–255)
+    # Approximate viridis key colors:
+    #   deep purple (#440154)
+    #   teal/duck    (#21908C)
+    #   green        (#35B779)
+    #   yellow       (#FDE725)
+    colors = np.array([
+        [0x44, 0x01, 0x54, alpha],  # deep purple
+        [0x21, 0x90, 0x8C, alpha],  # teal / duck
+        [0x35, 0xB7, 0x79, alpha],  # green
+        [0xFD, 0xE7, 0x25, alpha],  # yellow
+    ], dtype=float)
+
+    # Output LUT
+    lut = np.zeros((n, 4), dtype=np.uint8)
+
+    # Normalized positions in the LUT
+    x = np.linspace(0.0, 1.0, n)
+
+    # Interpolate R, G, B, A separately
+    for c in range(4):
+        lut[:, c] = np.clip(
+            np.interp(x, stops, colors[:, c]),
+            0, 255
+        ).astype(np.uint8)
+
+    return lut
+
+def get_text_colors(lut):
+    n = lut.shape[0]
     luminances = 0.2126 * lut[:, 0] + 0.7152 * lut[:, 1] + 0.0722 * lut[:, 2]
     txt_color = np.zeros((n, 4), dtype=np.uint8)
     txt_color[:, :3] = np.where(luminances[:, None] > 128, 0, 255)
     txt_color[:, 3] = 255
-
-    return lut, txt_color
-
-def green_gradient_lut(n=256):
-    """
-    Create a green RGBA LUT
-    """
-    lut = np.zeros((n, 4), dtype=np.uint8)
-    for i in range(n):
-        lut[i] = [0, int(i * 255 / (n - 1)), 0, 255]
-    return lut
+    return txt_color
 
 class LabelsPropertiesResultsTable(ResultsTable):
     def __init__(self, data, name, parent=None):
@@ -169,7 +200,8 @@ class LabelsPropertiesResultsTable(ResultsTable):
         self.table.setVerticalHeaderLabels(rowHeaders)
 
         # Fill table with sorted data
-        lut, txt_colors = scientific_gradient_lut()
+        lut = viridis_like_lut()
+        txt_colors = get_text_colors(lut)
         for metric_idx, metric_name in enumerate(columnHeaders):
             min_val = np.min(self.data_dict[metric_name])
             max_val = np.max(self.data_dict[metric_name])
