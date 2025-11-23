@@ -17,18 +17,16 @@ ImageUtils
 
 - [X] Split axis
 - [X] Normalize
-- [ ] Reslice
-- [ ] Resample isotropic
-- [ ] Apply scale
-- [ ] Apply rotation
+- [X] Type cast
+- [X] Reslice
+- [X] Resample isotropic
+- [X] Crop
 
 Mask utils
 ==========
 
 - [X] Threshold (+auto)
-
 - [X] Distance transform
-- [ ] Ultimate eroded voxel
 - [X] Gray opening
 - [X] Gray closing
 - [X] Black top-hat
@@ -37,23 +35,17 @@ Mask utils
 - [X] Binary opening
 - [X] Binary erosion
 - [X] Binary dilation
-- [ ] Fill holes
+- [X] Fill holes
 - [X] Connected components labeling
-- [ ] Seeded watershed
+- [X] Seeded watershed
 
 Analysis
 ========
 
-- [ ] Find maxima
-- [ ] Extended min & max
-
-Tools
-=====
-
-- [ ] Plot profile
-- [ ] Crop
-- [ ] Z profile
-- [ ] Histogram
+- [X] Plot profile
+- [X] Z profile
+- [X] Histogram
+- [X] Find extrema
 
 Label maps
 ==========
@@ -64,5 +56,5 @@ Label maps
 - [X] Keep largest
 - [X] Kill borders
 - [X] Measure labels (includes intensity)
-- [ ] Assign measure to labels
-- [ ] Remap labels
+- [X] Assign measure to labels
+- [X] Remap labels
