@@ -14,7 +14,7 @@ from autooptions import OptionsWidget
 from ddd_toolbox.lib.qtutil import TableView
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
-from ddd_toolbox.lib.image import ImageCalculator, ImageInfo
+from ddd_toolbox.lib.image import ImageCalculator, ImageInfo, Invert
 from ddd_toolbox.lib.noise import AddGaussianNoise, AddPoissonNoise
 from ddd_toolbox.lib.measure import TableTool
 
@@ -362,3 +362,32 @@ class ImageInfoWidget(SimpleWidget):
             self.data[key] =  data.tolist()
         self.displayResult()
 
+
+
+class InvertImageWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "invert image")
+        options.addImage()
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer("image")
+        self.operation = Invert(self.imageLayer.data)
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Inverting Image...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " invert"
+        self.displayImage(name)

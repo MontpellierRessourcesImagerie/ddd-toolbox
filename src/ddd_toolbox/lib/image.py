@@ -1,5 +1,5 @@
 import numpy as np
-from torch.nn.functional import layer_norm
+from skimage.util import invert
 
 
 class ImageCalculator(object):
@@ -58,3 +58,16 @@ class ImageInfo(object):
         self.result['path'] = [""]
         if self.layer.source.path:
             self.result['path'] = [self.layer.source.path]
+
+
+
+class Invert(object):
+
+
+    def __init__(self, image):
+        self.image = image
+        self.result = None
+
+
+    def run(self):
+        self.result = invert(self.image)

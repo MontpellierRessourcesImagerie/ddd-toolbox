@@ -14,6 +14,7 @@ from ._widget import (
     AddGaussianNoiseWidget,
     AddPoissonNoiseWidget,
     ImageInfoWidget,
+    InvertImageWidget,
 )
 from ._writer import write_multiple, write_single_image
 
@@ -29,4 +30,5 @@ __all__ = (
     "AddGaussianNoiseWidget",
     "AddPoissonNoiseWidget",
     "ImageInfoWidget",
+    "InvertImageWidget"
 )

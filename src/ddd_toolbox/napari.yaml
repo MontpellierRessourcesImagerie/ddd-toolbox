@@ -39,6 +39,9 @@ contributions:
     - id: ddd-toolbox.inverse_fft
       python_name: ddd_toolbox:InverseFFTWidget
       title: Inverse FFT
+    - id: ddd-toolbox.invert_image
+      python_name: ddd_toolbox:InvertImageWidget
+      title: Invert Image
   readers:
     - command: ddd-toolbox.get_reader
       accepts_directories: false
@@ -69,6 +72,8 @@ contributions:
       display_name: Image Info
     - command: ddd-toolbox.inverse_fft
       display_name: Inverse FFT
+    - command: ddd-toolbox.invert_image
+      display_name: Invert Image
   menus:
     napari/layers/filter:
       - submenu: convolution
@@ -85,6 +90,7 @@ contributions:
     image:
       - command: ddd-toolbox.image_calculator
       - command: ddd-toolbox.image_info
+      - command: ddd-toolbox.invert_image
     noise:
       - command: ddd-toolbox.add_gaussian_noise
       - command: ddd-toolbox.add_poisson_noise
