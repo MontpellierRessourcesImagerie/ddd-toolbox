@@ -12,10 +12,10 @@ class ImageCalculator(object):
         self.operation = 'add'
         self.result = None
         self.operations = {
-            'add': self.add, 
-            'subtract': self.subtract, 
-            'multiply': self.multiply, 
-            'divide': self.divide,
+            'add'       : self.add, 
+            'subtract'  : self.subtract, 
+            'multiply'  : self.multiply, 
+            'divide'    : self.divide,
             'difference': self.difference
         }
 

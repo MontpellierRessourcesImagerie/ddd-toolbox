@@ -9,6 +9,7 @@ from qtpy.QtCore import Qt, QThread
 import napari
 from napari.utils import progress
 from napari.utils import Colormap
+from napari.utils.notifications import show_error, show_warning
 
 import numpy as np
 
@@ -234,7 +235,6 @@ class MaskUtilsWidget(QWidget):
         if l > u:
             self.upper_spin.setValue(l)
             u = l
-            # return
         layer = self.viewer.layers.selection.active
         if layer is not None:
             layer.contrast_limits = (l-1e-2, u+1e-2)
@@ -277,7 +277,8 @@ class MaskUtilsWidget(QWidget):
 
     def compute_threshold(self, f=-1):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, 'colormap'):
+            show_warning("No active image layer selected.")
             return (None, None)
         data = layer.data
         if self.individual_frames_check.isChecked() and data.ndim == 4:
@@ -294,7 +295,8 @@ class MaskUtilsWidget(QWidget):
 
     def apply_threshold(self):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, 'colormap'):
+            show_warning("No active image layer selected.")
             return
         data = layer.data
         if data.ndim == 4 and self.individual_frames_check.isChecked():
@@ -315,7 +317,8 @@ class MaskUtilsWidget(QWidget):
 
     def apply_labeling(self):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, 'colormap'):
+            show_warning("No active image layer selected.")
             return
         data = layer.data
         connectivity = int(self.connectivity_spin.value())
@@ -410,16 +413,20 @@ class MaskUtilsWidget(QWidget):
         
     def apply_seeded_watershed(self):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, 'colormap'):
+            show_warning("No active image layer selected.")
             return
         data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         seeds_name = self.seeds_combobox.currentText()
         if seeds_name not in self.viewer.layers:
+            show_warning("No seeds layer found.")
             return
         seeds_layer = self.viewer.layers[seeds_name]
         if not hasattr(seeds_layer, 'symbol'):
+            show_warning("Selected seeds layer is not a points layer.")
             return
         if layer.ndim != seeds_layer.ndim:
+            show_warning("Dimension mismatch between image and seeds layers.")
             return
         seeds = seeds_layer.data
         all_labeled = np.zeros_like(data, dtype=np.uint16)

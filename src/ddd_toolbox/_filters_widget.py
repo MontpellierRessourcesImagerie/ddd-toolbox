@@ -8,6 +8,7 @@ from qtpy.QtCore import Qt, QThread
 
 import napari
 from napari.utils import progress
+from napari.utils.notifications import show_error, show_warning
 
 import numpy as np
 
@@ -22,15 +23,15 @@ class ImageFiltersWidget(QWidget):
         super().__init__()
         self.viewer = viewer
         self.filters = {
-            "Gaussian": (self.gaussian, "sigma"),
-            "Laplacian of Gaussian": (self.laplace, "sigma"),
+            "Gaussian"               : (self.gaussian, "sigma"),
+            "Laplacian of Gaussian"  : (self.laplace, "sigma"),
             "Difference of Gaussians": (self.difference_of_gaussians, "sigma"),
-            "Median": (self.median, "kernel"),
-            "Sobel": (self.sobel, ""),
-            "Minimum": (self.minimum, "kernel"),
-            "Maximum": (self.maximum, "kernel"),
-            "Mean": (self.mean, "kernel"),
-            "Rolling Ball": (self.rolling_ball, "kernel")
+            "Median"                 : (self.median, "kernel"),
+            "Sobel"                  : (self.sobel, ""),
+            "Minimum"                : (self.minimum, "kernel"),
+            "Maximum"                : (self.maximum, "kernel"),
+            "Mean"                   : (self.mean, "kernel"),
+            "Rolling Ball"           : (self.rolling_ball, "kernel")
         }
         self.init_ui()
         self.viewer.layers.events.inserted.connect(lambda e: self.update_info_label())
@@ -130,7 +131,7 @@ class ImageFiltersWidget(QWidget):
 
     def process_pxl_size(self, sigma):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, 'colormap'):
             return None
         clb = np.array(layer.scale[-3:])
         if clb is None:
@@ -214,16 +215,16 @@ class ImageFiltersWidget(QWidget):
     def run_filter(self, filter_name):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, 'colormap'):
-            print("No active layer selected.")
+            show_warning("No active image layer selected.")
             return
         s1 = self.process_pxl_size(self.sigma1_spin.value())
         s2 = self.process_pxl_size(self.sigma2_spin.value())
         if (s1 is None) or (s2 is None):
-            print("Impossible to extract sigma values.")
+            show_error("Impossible to extract sigma values.")
             return
         filter_func, _ = self.filters.get(filter_name, (None, None))
         if filter_func is None:
-            print(f"Filter {filter_name} not found.")
+            show_error(f"Filter {filter_name} not found.")
             return
         data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         filtered = filter_func(data, s1, s2)
@@ -241,7 +242,7 @@ class ImageFiltersWidget(QWidget):
     def apply_filter(self):
         key = self.filter_combo.currentText()
         if key not in self.filters:
-            print("Filter not recognized.")
+            show_error("Filter not recognized.")
             return
         self.run_filter(key)
 

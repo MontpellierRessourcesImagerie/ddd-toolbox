@@ -8,6 +8,7 @@ from qtpy.QtCore import Qt, QThread
 import napari
 from napari.utils import progress
 from napari.utils import Colormap
+from napari.utils.notifications import show_error, show_warning, show_info
 
 import numpy as np
 
@@ -145,23 +146,23 @@ class AnalysisWidget(QWidget):
     def plot_line_profile(self):
         intensities_layer = self.viewer.layers.selection.active
         if intensities_layer is None or not hasattr(intensities_layer, 'colormap'):
-            print("No active layer selected")
+            show_warning("The active layer is not an image layer.")
             return
         intensities_data = intensities_layer.data if intensities_layer.data.ndim == 4 else intensities_layer.data[np.newaxis, :]
         line_name = self.plot_line_layer_combobox.currentText()
         if line_name not in self.viewer.layers:
-            print("No line layer selected")
+            show_warning("No line layer selected.")
             return
         line_layer = self.viewer.layers[line_name]
         if line_layer.ndim != intensities_layer.ndim:
-            print("Line layer and intensities layer have different dimensions")
+            show_warning("Line layer and intensities layer have different dimensions.")
             return
         true_len = min(len(line_layer.data), len(line_layer.shape_type))
         if true_len != 1:
-            print("The shape layer must contain exactly one line or path")
+            show_warning("The shape layer must contain exactly one line or path.")
             return
         if line_layer.shape_type[true_len-1] not in ['line', 'path']:
-            print("Selected layer is not a line or path")
+            show_warning("Selected layer is not a line or path.")
             return
         polyline = line_layer.data[true_len-1]
         all_samples = np.empty((0, 3), dtype=float)
@@ -191,24 +192,24 @@ class AnalysisWidget(QWidget):
     def plot_z_profile(self):
         intensity_layer = self.viewer.layers.selection.active
         if intensity_layer is None or not hasattr(intensity_layer, 'colormap'):
-            print("No active layer selected")
+            show_warning("The active layer is not an image layer.")
             return
         intensity_data = intensity_layer.data if intensity_layer.data.ndim == 4 else intensity_layer.data[np.newaxis, :]
         shape_name = self.plot_z_layer_combobox.currentText()
         if shape_name not in self.viewer.layers:
-            print("No shape layer selected")
+            show_warning("No shape layer selected.")
             return
         shape_layer = self.viewer.layers[shape_name]
         if shape_layer.ndim != intensity_layer.ndim:
-            print("Shape layer and intensity layer have different dimensions")
+            show_warning("Shape layer and intensity layer have different dimensions.")
             return
         true_len = min(len(shape_layer.data), len(shape_layer.shape_type))
         if true_len != 1:
-            print("The shape layer must contain exactly one shape")
+            show_warning("The shape layer must contain exactly one shape.")
             return
         shape_type = shape_layer.shape_type[true_len-1]
         if shape_type not in ['rectangle']:
-            print("Selected layer is not a rectangle")
+            show_warning("Selected layer is not a rectangle.")
             return
         rect = shape_layer.data[true_len-1].T
         min_y, min_x = np.min(rect[-2]), np.min(rect[-1])
@@ -232,7 +233,7 @@ class AnalysisWidget(QWidget):
     def show_histogram(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, 'colormap'):
-            print("No active layer selected")
+            show_warning("The active layer is not an image layer.")
             return
         full_data = layer.data if layer.data.ndim == 4 else layer.data[np.newaxis, :]
         n_bins = self.n_bins_spinbox.value()
@@ -264,7 +265,7 @@ class AnalysisWidget(QWidget):
     def find_extrema(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, 'colormap'):
-            print("No active layer selected")
+            show_warning("The active layer is not an image layer.")
             return
         full_data = layer.data if layer.data.ndim == 4 else layer.data[np.newaxis, :]
         prominence = self.prominence_spinbox.value()
@@ -293,7 +294,7 @@ class AnalysisWidget(QWidget):
             buffer.append(coords)
         coords = np.vstack(buffer)
         if found == 0:
-            print("No extrema found")
+            show_info("No extrema found.")
             return
         name = f"{layer.name} Extrema"
         if name in self.viewer.layers:

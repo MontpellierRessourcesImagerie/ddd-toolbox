@@ -8,6 +8,7 @@ from qtpy.QtCore import Qt, QThread
 import napari
 from napari.utils import progress
 from napari.utils import Colormap
+from napari.utils.notifications import show_error, show_warning
 
 import numpy as np
 
@@ -135,6 +136,7 @@ class LabelsOperationsWidget(QWidget):
         self.target_metric_combobox.clear()
         selected_rt_name = self.measure_assign_combobox.currentText()
         if selected_rt_name not in self.results_tables:
+            show_warning("Selected results table not found.")
             return
         measures = self.results_tables[selected_rt_name].data_dict
         self.target_metric_combobox.addItems(list(measures.keys()))
@@ -264,19 +266,23 @@ class LabelsOperationsWidget(QWidget):
     def labels_property_filter(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         selected_rt_name = self.choose_measures_combobox.currentText()
         if selected_rt_name not in self.results_tables:
+            show_warning("Selected results table not found.")
             return
         measures = self.results_tables[selected_rt_name].data_dict
         settings = self.ask_filtering_settings(measures, self)
         if settings is None:
+            show_error("Filtering settings were not provided.")
             return
         self._labels_property_filter(layer, measures, settings)
 
     def keep_largest(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         data = layer.data
         if data.ndim == 4:
@@ -326,6 +332,7 @@ class LabelsOperationsWidget(QWidget):
     def select_labels(self, mode='keep'):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         points_name = self.select_labels_points_combobox.currentText()
         frame_labels = []
@@ -338,11 +345,13 @@ class LabelsOperationsWidget(QWidget):
             )
             labels = self.list_to_integers(txt_labels[0])
             if labels is None:
+                show_error("Invalid labels input.")
                 return
             frame_labels = [labels for _ in range(layer.data.shape[0])] if layer.ndim == 4 else [labels]
         else:
             points_layer = self.viewer.layers[points_name]
             if points_layer is None or points_layer.ndim != layer.ndim:
+                show_warning("Selected points layer is not compatible.")
                 return
             if points_layer.ndim == 4: # if we have time, we take for each frame
                 frame_labels = [set() for _ in range(layer.data.shape[0])]
@@ -391,6 +400,7 @@ class LabelsOperationsWidget(QWidget):
     def merge_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         shape_type_name = self.merge_labels_combobox.currentText()
         frame_labels = []
@@ -447,6 +457,7 @@ class LabelsOperationsWidget(QWidget):
     def kill_border_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
         for f in range(data.shape[0]):
@@ -498,10 +509,12 @@ class LabelsOperationsWidget(QWidget):
     def measure_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         intensities_name = self.intensity_channel_combobox.currentText()
         intensities = self.viewer.layers[intensities_name].data if intensities_name in self.viewer.layers else None
         if (intensities is not None) and (layer.data.shape != intensities.shape):
+            show_warning("Intensity channel shape does not match labels shape.")
             return
         labels_map = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         intensities_map = None if intensities is None else (intensities if intensities.ndim == 4 else intensities[np.newaxis, ...])
@@ -530,13 +543,16 @@ class LabelsOperationsWidget(QWidget):
     def assign_measure(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         selected_rt_name = self.measure_assign_combobox.currentText()
         if selected_rt_name not in self.results_tables:
+            show_warning("Selected results table not found.")
             return
         measures = self.results_tables[selected_rt_name].data_dict
         target_metric = self.target_metric_combobox.currentText()
         if target_metric not in measures:
+            show_warning("Selected metric not found in results table.")
             return
         data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
         assigned = np.zeros_like(data, dtype=np.float32)
@@ -557,6 +573,7 @@ class LabelsOperationsWidget(QWidget):
     def remap_labels(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "selected_label"):
+            show_warning("No active labels layer selected.")
             return
         data = np.copy(layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...])
         remapped = np.zeros_like(data)

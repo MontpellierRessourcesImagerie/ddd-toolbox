@@ -83,6 +83,7 @@ class ImageUtilsWidget(QWidget):
             self.buttons_reslice.append(btn)
             self.group_reslice.addButton(btn)
             reslice_layout.addWidget(btn)
+        self.buttons_reslice[1].setChecked(True)
         self.reslice_button = QPushButton("Reslice")
         self.reslice_button.clicked.connect(self.reslice)
         reslice_layout.addWidget(self.reslice_button)
@@ -96,14 +97,17 @@ class ImageUtilsWidget(QWidget):
         layout.addLayout(cast_layout)
         self.group_typecast = QButtonGroup(self)
         self.group_typecast.setExclusive(True)
+        self.buttons_typecast = []
         for text in labels:
             btn = QToolButton()
             btn.setText(text)
             btn.setCheckable(True)
             btn.setStyleSheet(button_style)
+            self.buttons_typecast.append(btn)
             btn.clicked.connect(lambda checked, t=text: print(t))
             self.group_typecast.addButton(btn)
             cast_layout.addWidget(btn)
+        self.buttons_typecast[1].setChecked(True)
         self.typecast_button = QPushButton("Type Cast")
         self.typecast_button.clicked.connect(self.type_cast)
         cast_layout.addWidget(self.typecast_button)
@@ -206,16 +210,17 @@ class ImageUtilsWidget(QWidget):
         data = layer.data.astype(np.float32)
         dmin = data.min()
         dmax = data.max()
-        if dmax - dmin == 0:
-            return
-        norm_data = (data - dmin) / (dmax - dmin)
-        norm_data = norm_data * target_max
+        if dmax - dmin > 0:
+            norm_data = (data - dmin) / (dmax - dmin)
+            norm_data = norm_data * target_max
+        else:
+            norm_data = np.copy(data)
         layer.data = norm_data.astype(target_type)
         layer.contrast_limits = (0, target_max)
 
     def view_along_axis(self, img, axis: str):
         if img.ndim != 3:
-            raise ValueError("Input image must be 3D (Z, Y, X).")
+            raise ValueError("Input image must be 3D (Z, Y, X), not 3D+t.")
 
         axis = axis.upper().replace(" ", "")
         if axis not in ["+Z", "-Z", "+Y", "-Y", "+X", "-X"]:
@@ -277,10 +282,14 @@ class ImageUtilsWidget(QWidget):
             new_scale[x_ax] = layer.scale[z_ax]
             new_units[x_ax] = layer.units[z_ax]
 
-        for frame_idx in range(all_data.shape[0]):
-            v = all_data[frame_idx]
-            t = self.view_along_axis(v, direction)
-            transformed.append(t)
+        try:
+            for frame_idx in range(all_data.shape[0]):
+                v = all_data[frame_idx]
+                t = self.view_along_axis(v, direction)
+                transformed.append(t)
+        except Exception as e:
+            show_error(f"Reslicing failed: {str(e)}")
+            return
 
         result = np.stack(transformed, axis=0)
         name = f"{layer.name} resliced {direction}"
@@ -311,17 +320,22 @@ class ImageUtilsWidget(QWidget):
 
     def apply_resample_isotropic(self):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, "colormap"):
+            show_warning("Please select an image/labels layer to resample isotropically.")
             return
         data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         scale = layer.scale[-3:]
         transformed = []
 
         iso = 1
-        for frame_idx in range(data.shape[0]):
-            v = data[frame_idx]
-            t, iso = self.isotropic_resample(v, scale)
-            transformed.append(t)
+        try:
+            for frame_idx in range(data.shape[0]):
+                v = data[frame_idx]
+                t, iso = self.isotropic_resample(v, scale)
+                transformed.append(t)
+        except Exception as e:
+            show_error(f"Resampling failed: {str(e)}")
+            return
 
         result = np.stack(transformed, axis=0)
         new_scale = list(layer.scale)
@@ -356,17 +370,21 @@ class ImageUtilsWidget(QWidget):
     def crop_to_selection(self):
         layer = self.viewer.layers.selection.active
         if layer is None or not hasattr(layer, "colormap"):
+            show_warning("Please select an image/labels layer to crop.")
             return
         data = layer.data if layer.ndim == 4 else layer.data[np.newaxis, ...]
         shape_name = self.crop_selection_combobox.currentText()
         if shape_name not in self.viewer.layers:
+            show_warning("Please select a valid shape layer to crop to.")
             return
         shape_layer = self.viewer.layers[shape_name]
         if shape_layer.ndim != layer.ndim:
+            show_warning("Shape layer and image/labels layer must have the same number of dimensions.")
             return
         true_len = min(len(shape_layer.data), len(shape_layer.shape_type))
         stype = shape_layer.shape_type[true_len-1]
         if stype != "rectangle":
+            show_warning("Currently, only rectangle shapes are supported for cropping.")
             return
         target_range = (1, data.shape[0])
         if layer.ndim == 4:
