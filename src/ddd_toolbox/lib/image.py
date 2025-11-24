@@ -6,38 +6,51 @@ class ImageCalculator(object):
 
 
     def __init__(self, image1, image2):
-        super().__init__()
-        self.image1 = image1
-        self.image2 = image2
+        self.type = image1.dtype
+        self.image1 = image1.astype(np.float32)
+        self.image2 = image2.astype(np.float32)
         self.operation = 'add'
         self.result = None
+        self.operations = {
+            'add'       : self.add, 
+            'subtract'  : self.subtract, 
+            'multiply'  : self.multiply, 
+            'divide'    : self.divide,
+            'difference': self.difference
+        }
 
+    def clamp(self, result):
+        allowed_min = np.iinfo(self.type).min
+        allowed_max = np.iinfo(self.type).max
+        result = np.clip(result, allowed_min, allowed_max)
+        return result.astype(self.type)
 
     def run(self):
-        if self.operation == "add":
-            self.add()
-        if self.operation == "subtract":
-            self.subtract()
-        if self.operation == "multiply":
-            self.multiply()
-        if self.operation == "divide":
-            self.divide()
+        op = self.operations.get(self.operation, None)
+        if op is None:
+            print("Operation not recognized")
+            return
+        res = op()
+        self.result = self.clamp(res)
+
+    def difference(self):
+        return np.abs(self.image1 - self.image2)
 
 
     def add(self):
-        self.result = np.add(self.image1, self.image2)
+        return np.add(self.image1, self.image2)
 
 
     def subtract(self):
-        self.result = np.subtract(self.image1, self.image2)
+        return np.subtract(self.image1, self.image2)
 
 
     def multiply(self):
-        self.result = np.multiply(self.image1, self.image2)
+        return np.multiply(self.image1, self.image2)
 
 
     def divide(self):
-        self.result = np.divide(self.image1, self.image2)
+        return np.divide(self.image1, self.image2)
 
 
 

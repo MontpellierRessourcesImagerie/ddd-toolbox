@@ -48,6 +48,21 @@ contributions:
     - id: ddd-toolbox.rename_layers
       python_name: ddd_toolbox:RenameLayersWidget
       title: Rename Layers
+    - id: ddd-toolbox.image_utils
+      python_name: ddd_toolbox:ImageUtilsWidget
+      title: Image Utils
+    - id: ddd-toolbox.filters
+      python_name: ddd_toolbox:ImageFiltersWidget
+      title: Filters
+    - id: ddd-toolbox.mask_utils
+      python_name: ddd_toolbox:MaskUtilsWidget
+      title: Mask Utils
+    - id: ddd-toolbox.label_maps
+      python_name: ddd_toolbox:LabelsOperationsWidget
+      title: Label Maps Operations
+    - id: ddd-toolbox.analysis
+      python_name: ddd_toolbox:AnalysisWidget
+      title: Analysis
   readers:
     - command: ddd-toolbox.get_reader
       accepts_directories: false
@@ -84,6 +99,16 @@ contributions:
       display_name: Invert Image
     - command: ddd-toolbox.rename_layers
       display_name: Rename Layers
+    - command: ddd-toolbox.image_utils
+      display_name: Image Utils
+    - command: ddd-toolbox.filters
+      display_name: Filters
+    - command: ddd-toolbox.mask_utils
+      display_name: Mask Utils
+    - command: ddd-toolbox.label_maps
+      display_name: Label Maps Operations
+    - command: ddd-toolbox.analysis
+      display_name: Analysis
   menus:
     napari/layers/filter:
       - submenu: convolution
