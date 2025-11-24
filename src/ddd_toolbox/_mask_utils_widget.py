@@ -423,6 +423,7 @@ class MaskUtils(QWidget):
             return
         seeds = seeds_layer.data
         all_labeled = np.zeros_like(data, dtype=np.uint16)
+        morpho = hasattr(layer, 'selected_label')
         for frame_idx in range(data.shape[0]):
             frame = data[frame_idx]
             markers = np.zeros_like(frame, dtype=np.uint8)
@@ -433,7 +434,10 @@ class MaskUtils(QWidget):
                     continue
                 markers[coord3d] = label
                 label += 1
-            labeled = watershed(frame, markers, mask=(frame > 0))
+            if morpho:
+                labeled = watershed(frame, markers, mask=(frame > 0))
+            else:
+                labeled = watershed(frame, markers)
             all_labeled[frame_idx] = labeled
 
         name = layer.name + f" seeded watershed"
@@ -651,34 +655,34 @@ def loose_launch():
     widget = MaskUtils(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
-    import tifffile
+    # import tifffile
 
-    mask = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei-mask.tif')
-    viewer.add_labels(mask, name='nuclei mask')
+    # mask = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei-mask.tif')
+    # viewer.add_labels(mask, name='nuclei mask')
 
-    points = np.array([
-        [ 31., 249., 201.],
-        [ 32., 200., 167.],
-        [ 33., 219., 249.],
-        [ 33., 235., 126.],
-        [ 34.,  78., 118.],
-        [ 34., 183.,  48.],
-        [ 34., 219.,  82.],
-        [ 35.,  46., 228.],
-        [ 35.,  99., 160.],
-        [ 35., 146., 190.],
-        [ 35., 146., 244.],
-        [ 35., 159., 109.],
-        [ 36.,   0.,  81.],
-        [ 36.,  10.,  19.],
-        [ 36.,  14., 155.],
-        [ 36.,  35.,  75.],
-        [ 36.,  47., 182.],
-        [ 37., 140.,  35.],
-        [ 54.,  85.,  50.]
-    ])
+    # points = np.array([
+    #     [ 31., 249., 201.],
+    #     [ 32., 200., 167.],
+    #     [ 33., 219., 249.],
+    #     [ 33., 235., 126.],
+    #     [ 34.,  78., 118.],
+    #     [ 34., 183.,  48.],
+    #     [ 34., 219.,  82.],
+    #     [ 35.,  46., 228.],
+    #     [ 35.,  99., 160.],
+    #     [ 35., 146., 190.],
+    #     [ 35., 146., 244.],
+    #     [ 35., 159., 109.],
+    #     [ 36.,   0.,  81.],
+    #     [ 36.,  10.,  19.],
+    #     [ 36.,  14., 155.],
+    #     [ 36.,  35.,  75.],
+    #     [ 36.,  47., 182.],
+    #     [ 37., 140.,  35.],
+    #     [ 54.,  85.,  50.]
+    # ])
 
-    viewer.add_points(points, name='test points', size=5, symbol='cross')
+    # viewer.add_points(points, name='test points', size=5, symbol='cross')
 
     napari.run()
 

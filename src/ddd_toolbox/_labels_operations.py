@@ -588,10 +588,10 @@ def loose_launch():
     widget = LabelsOperations(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
-    import tifffile
+    # import tifffile
 
-    labels = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/test-labels-frames.tif')
-    viewer.add_labels(labels, name='test labels')
+    # labels = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/test-labels-frames.tif')
+    # viewer.add_labels(labels, name='test labels')
 
     napari.run()
 

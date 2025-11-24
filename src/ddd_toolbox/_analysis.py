@@ -102,6 +102,7 @@ class AnalysisWidget(QWidget):
         self.prominence_spinbox.setPrefix("Prominence: ")
         self.prominence_spinbox.setRange(0.0, 100000.0)
         self.prominence_spinbox.setValue(10.0)
+        self.prominence_spinbox.setDecimals(4)
         h_layout.addWidget(self.prominence_spinbox)
         
 
@@ -268,6 +269,7 @@ class AnalysisWidget(QWidget):
         full_data = layer.data if layer.data.ndim == 4 else layer.data[np.newaxis, :]
         prominence = self.prominence_spinbox.value()
         buffer = []
+        found = 0
         for frame_idx in range(full_data.shape[0]):
             frame_data = full_data[frame_idx]
             z, _, x = layer.scale[-3:]
@@ -278,24 +280,26 @@ class AnalysisWidget(QWidget):
                 sigmas = [sigma * anisotropy, sigma, sigma]
                 data = gaussian_filter(data, sigma=sigmas)
             
-            # footprint = ball(1)
-            maxima_finder = h_maxima if self.dark_bg_checkbox.isChecked() else h_minima
-            hmax_mask = maxima_finder(data, h=prominence) # , footprint=footprint
-            self.viewer.add_image(hmax_mask)
+            extrema_finder = h_maxima if self.dark_bg_checkbox.isChecked() else h_minima
+            hmax_mask = extrema_finder(data, h=prominence)
             labels = label(hmax_mask)
             coords = []
             for rp in regionprops(labels):
                 coords.append(rp.centroid)
             coords = np.array(coords)
+            found += len(coords)
             if layer.ndim == 4:
                 coords = np.hstack([np.full((len(coords), 1), frame_idx), coords])
             buffer.append(coords)
         coords = np.vstack(buffer)
+        if found == 0:
+            print("No extrema found")
+            return
         name = f"{layer.name} Extrema"
         if name in self.viewer.layers:
             self.viewer.layers[name].data = coords
         else:
-            self.viewer.add_points(coords, name=name, size=5, face_color='red')
+            self.viewer.add_points(coords, name=name, size=5, face_color='red', scale=layer.scale, units=layer.units)
 
 
 def loose_launch():
@@ -303,9 +307,10 @@ def loose_launch():
     widget = AnalysisWidget(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
-    import tifffile
-    image = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/nuclei.tif')
-    viewer.add_image(image, name='nuclei')
+    # import tifffile
+    # image = tifffile.imread('/home/clement/Documents/formations/formation-3d-2024/images/exercise05/SPOT-Zebra LoG 1.tif')
+    # l = viewer.add_image(image, name='nuclei')
+    # l.scale = (2.01, 1.2760, 1.2760)
 
     napari.run()
 
