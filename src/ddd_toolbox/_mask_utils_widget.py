@@ -38,8 +38,8 @@ def generate_lut_threshold():
         interpolation='zero',
         name='Threshold')
 
-class MaskUtils(QWidget):
-    def __init__(self, viewer):
+class MaskUtilsWidget(QWidget):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer
         self.threshold_methods = {
@@ -652,7 +652,7 @@ class MaskUtils(QWidget):
 
 def loose_launch():
     viewer = napari.Viewer()
-    widget = MaskUtils(viewer=viewer)
+    widget = MaskUtilsWidget(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
     # import tifffile

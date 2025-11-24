@@ -17,8 +17,8 @@ from ddd_toolbox.results_table import LabelsPropertiesResultsTable
 
 NEUTRAL = "--------"
 
-class LabelsOperations(QWidget):
-    def __init__(self, viewer):
+class LabelsOperationsWidget(QWidget):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer
         self.layer_pools = []
@@ -585,7 +585,7 @@ class LabelsOperations(QWidget):
 
 def loose_launch():
     viewer = napari.Viewer()
-    widget = LabelsOperations(viewer=viewer)
+    widget = LabelsOperationsWidget(viewer=viewer)
     viewer.window.add_dock_widget(widget)
 
     # import tifffile

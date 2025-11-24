@@ -10,6 +10,7 @@ from scipy.ndimage import zoom
 
 import napari
 from napari.utils import progress
+from napari.utils.notifications import show_error, show_warning
 
 import numpy as np
 
@@ -33,7 +34,7 @@ QToolButton:checked {
 NEUTRAL = "---------"
 
 class ImageUtilsWidget(QWidget):
-    def __init__(self, viewer):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer
         self.layer_pools = []
@@ -132,10 +133,12 @@ class ImageUtilsWidget(QWidget):
     def split_axis(self):
         a = int(self.axis_spin.value())
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, "colormap"):
+            show_warning("Please select an image/labels layer to split.")
             return
         data = layer.data
         if data.ndim <= a:
+            show_error(f"Selected axis {a} is out of bounds for layer with {data.ndim} dimensions.")
             return
         size = data.shape[a]
         components = np.split(data, size, axis=a)
@@ -147,7 +150,8 @@ class ImageUtilsWidget(QWidget):
 
     def normalize_values(self):
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, "colormap"):
+            show_warning("Please select an image/labels layer to normalize.")
             return
         
         target = None
@@ -165,8 +169,8 @@ class ImageUtilsWidget(QWidget):
             target = (0.0, 1.0)
 
         if target is None:
+            show_warning("Unsupported data type for normalization.")
             return
-        
         data = layer.data.astype(np.float32)
         dmin = data.min()
         dmax = data.max()
@@ -191,11 +195,13 @@ class ImageUtilsWidget(QWidget):
         }
         selected_button = self.group_typecast.checkedButton()
         if selected_button is None:
+            show_error("The select type target for casting is incorrect.")
             return
         target_type = types[selected_button.text()]
         target_max = types_max[selected_button.text()]
         layer = self.viewer.layers.selection.active
-        if layer is None:
+        if layer is None or not hasattr(layer, "colormap"):
+            show_warning("Please select an image/labels layer to type cast.")
             return
         data = layer.data.astype(np.float32)
         dmin = data.min()

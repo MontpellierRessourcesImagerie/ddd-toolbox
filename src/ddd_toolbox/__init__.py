@@ -20,6 +20,12 @@ from ._widget import (
     RenameLayersWidget,
     ConvertImageTypeWidget,
 )
+from ._image_utils_widget import ImageUtilsWidget
+from ._filters_widget import ImageFiltersWidget
+from ._mask_utils_widget import MaskUtilsWidget
+from ._labels_operations_widget import LabelsOperationsWidget
+from ._analysis_widget import AnalysisWidget
+
 from ._writer import write_multiple, write_single_image
 
 __all__ = (
@@ -34,9 +40,14 @@ __all__ = (
     "AddGaussianNoiseWidget",
     "AddPoissonNoiseWidget",
     "ImageInfoWidget",
-    "InvertImageWidget",
     "RenameLayersWidget",
+    "InvertImageWidget",
     "ConvertImageTypeWidget",
+    "ImageUtilsWidget",
+    "ImageFiltersWidget",
+    "MaskUtilsWidget",
+    "LabelsOperationsWidget",
+    "AnalysisWidget"
 )
 
 np.Inf = np.inf

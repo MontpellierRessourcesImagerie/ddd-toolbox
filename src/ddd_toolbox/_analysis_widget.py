@@ -21,7 +21,7 @@ from ddd_toolbox.plots_ui import LineProfile, HistogramPlot
 NEUTRAL = "---------"
 
 class AnalysisWidget(QWidget):
-    def __init__(self, viewer):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer
         self.layer_pools = []
