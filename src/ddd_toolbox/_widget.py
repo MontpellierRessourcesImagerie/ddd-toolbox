@@ -17,7 +17,8 @@ from ddd_toolbox.lib.transform import FFT, InverseFFT
 from ddd_toolbox.lib.image import ImageCalculator, ImageInfo, Invert
 from ddd_toolbox.lib.noise import AddGaussianNoise, AddPoissonNoise
 from ddd_toolbox.lib.measure import TableTool
-
+from ddd_toolbox.lib.tools import RenameListElements
+from ddd_toolbox.lib.image import ImageTypeConverter
 
 from typing import TYPE_CHECKING
 
@@ -391,3 +392,73 @@ class InvertImageWidget(SimpleWidget):
     def displayResult(self):
         name = self.imageLayer.name + " invert"
         self.displayImage(name)
+
+
+
+class RenameLayersWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "rename layers")
+        options.addStr("old text", value='_')
+        options.addStr("new text", value='-')
+        options.addBool("flip", value=False)
+        options.load()
+        return options
+
+
+    def apply(self):
+        names = [layer.name for layer in self.viewer.layers]
+        self.operation = RenameListElements(names)
+        self.operation.subString = self.options.value('old text')
+        self.operation.newSubString = self.options.value('new text')
+        self.operation.isFlip = self.options.value('flip')
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Renaming layers...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        newNames = self.operation.result
+        for name, layer in zip(newNames, self.viewer.layers):
+            layer.name = name
+
+
+
+class ConvertImageTypeWidget(SimpleWidget):
+
+
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+
+
+    def getOptions(self):
+        options = Options("3D Toolbox", "convert image type")
+        options.addImage()
+        options.addChoice("type", value='float32', choices=ImageTypeConverter.types())
+        options.load()
+        return options
+
+
+    def apply(self):
+        self.imageLayer = self.widget.getImageLayer("image")
+        self.operation = ImageTypeConverter(self.imageLayer.data)
+        self.operation.targetType = self.options.value('type')
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': 'Converting Image Type...'}
+                               )
+        worker.finished.connect(self.displayResult)
+        worker.start()
+
+
+    def displayResult(self):
+        name = self.imageLayer.name + " convert"
+        self.displayImage(name)
+
+

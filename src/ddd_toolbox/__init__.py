@@ -6,6 +6,8 @@ except ImportError:
 
 from ._reader import napari_get_reader
 from ._sample_data import make_sample_data
+import numpy as np
+
 from ._widget import (
     ConvolutionWidget,
     FFTWidget,
@@ -15,6 +17,8 @@ from ._widget import (
     AddPoissonNoiseWidget,
     ImageInfoWidget,
     InvertImageWidget,
+    RenameLayersWidget,
+    ConvertImageTypeWidget,
 )
 from ._writer import write_multiple, write_single_image
 
@@ -30,5 +34,9 @@ __all__ = (
     "AddGaussianNoiseWidget",
     "AddPoissonNoiseWidget",
     "ImageInfoWidget",
-    "InvertImageWidget"
+    "InvertImageWidget",
+    "RenameLayersWidget",
+    "ConvertImageTypeWidget",
 )
+
+np.Inf = np.inf
