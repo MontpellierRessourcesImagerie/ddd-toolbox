@@ -192,7 +192,7 @@ class ImageCalculatorWidget(SimpleWidget):
         options = Options("3D Toolbox", "calculator")
         options.addImage(name="image 1")
         options.addImage(name="image 2")
-        options.addChoice("operation", value='multiply', choices=('add', 'subtract', 'multiply', 'divide'))
+        options.addChoice("operation", value='multiply', choices=('add', 'subtract', 'multiply', 'divide', 'difference'))
         options.load()
         return options
 
