@@ -77,13 +77,14 @@ def reader_function(path):
             if 283 in tif.pages[0].tags.keys():
                 voxelSizeY = tif.pages[0].tags['YResolution'].value[1] / tif.pages[0].tags['XResolution'].value[0]
             spacing = 1
-            if 'spacing' in tif.imagej_metadata.keys():
-                spacing = tif.imagej_metadata['spacing']
             unit = 'pixel'
-            if 'unit' in tif.imagej_metadata.keys():
-                unit = tif.imagej_metadata['unit']
-                if unit == '\\u00B5m':
-                    unit = 'micrometer'
+            if tif.imagej_metadata:
+                if 'spacing' in tif.imagej_metadata.keys():
+                    spacing = tif.imagej_metadata['spacing']
+                if 'unit' in tif.imagej_metadata.keys():
+                    unit = tif.imagej_metadata['unit']
+                    if unit == '\\u00B5m':
+                        unit = 'micrometer'
         add_kwargs = {}
         if 'C' in axes:
             channel_axis = axes.index('C')
