@@ -20,7 +20,7 @@ from ._widget import (
     RenameLayersWidget,
     ConvertImageTypeWidget,
 )
-from ._image_utils_widget import ImageUtilsWidget
+from ._image_utils_widget import SplitAxesWidget, NormalizeValuesWidget
 from ._filters_widget import ImageFiltersWidget
 from ._mask_utils_widget import MaskUtilsWidget
 from ._labels_operations_widget import LabelsOperationsWidget
@@ -43,7 +43,8 @@ __all__ = (
     "RenameLayersWidget",
     "InvertImageWidget",
     "ConvertImageTypeWidget",
-    "ImageUtilsWidget",
+    "SplitAxesWidget",
+    "NormalizeValuesWidget",
     "ImageFiltersWidget",
     "MaskUtilsWidget",
     "LabelsOperationsWidget",

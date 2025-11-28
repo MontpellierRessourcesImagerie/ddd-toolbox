@@ -11,29 +11,102 @@ from scipy.ndimage import zoom
 import napari
 from napari.utils import progress
 from napari.utils.notifications import show_error, show_warning
+from napari.qt.threading import create_worker
+
+from autooptions import Options
+from ddd_toolbox.simple_widget import SimpleWidget
+from ddd_toolbox.lib.axes import AxesUtils, SplitAxes
+from ddd_toolbox.lib.normalize import NormalizeValues
 
 import numpy as np
 
-button_style = """
-QToolButton {
-    border: 1px solid #666;
-    border-radius: 4px;
-    padding: 4px 8px;
-    background-color: transparent;
-    color: white;
-}
-QToolButton:hover {
-    background-color: #444;
-}
-QToolButton:checked {
-    background-color: #007acc;   /* Active button color */
-    border: 1px solid #005f99;
-}
-"""
+NEUTRAL = "---"
 
-NEUTRAL = "---------"
+class SplitAxesWidget(SimpleWidget):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+        self.base_name = "Split Axis"
+        self.colormap = "gray"
+    
+    def getOptions(self):
+        options = Options("3D Toolbox", "split_axis")
+        options.addInt("Axis", value=1, callback=None)
+        options.addBool("Remove original", value=True, callback=None)
+        options.addBool("Assign colormaps", value=True, callback=None)
+        options.load()
+        return options
+    
+    def apply(self):
+        layer = self.widget.getCurrentImageLayer()
+        if layer is None:
+            show_error("Please select an image or labels layer onto which axes must be splitted.")
+            return
+        self.base_name = layer.name
+        axis = self.options.value("Axis")
+        scale = layer.scale
+        units = layer.units
+        self.colormap = layer.colormap.name
+        self.operation = SplitAxes(layer.data, scale, units, axis)
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': f'Splitting the image by the {self.options.value("Axis")} axis...'}
+                               )
+        worker.finished.connect(self.display_result)
+        worker.start()
 
-class ImageUtilsWidget(QWidget):
+    def display_result(self):
+        colormaps = ['red', 'green', 'blue', 'magenta', 'yellow', 'cyan', 'gray']
+        assign = self.options.value("Assign colormaps")
+        for i, img in enumerate(self.operation.result):
+            self.viewer.add_image(
+                img,
+                name=f"{self.base_name} #{i}",
+                scale=self.operation.scale,
+                units=self.operation.units,
+                blending='additive',
+                colormap=colormaps[i % len(colormaps)] if assign else self.colormap
+            )
+        if self.options.value("Remove original"):
+            if self.base_name in self.viewer.layers:
+                layer = self.viewer.layers[self.base_name]
+                self.viewer.layers.remove(layer)
+        
+
+class NormalizeValuesWidget(SimpleWidget):
+    def __init__(self, viewer: "napari.viewer.Viewer"):
+        super().__init__(viewer)
+    
+    def getOptions(self):
+        options = Options("3D Toolbox", "normalize_values")
+        options.addBool("Per frame", value=False, callback=None)
+        options.addChoice("Output type", value="uint8", choices=NormalizeValues.known_types(), callback=None)
+        options.addFloat("Output min", value=0.0, callback=None, activable=True, activated=False)
+        options.addFloat("Output max", value=1.0, callback=None, activable=True, activated=False)
+        options.load()
+        return options
+    
+    def apply(self):
+        layer = self.widget.getCurrentImageLayer()
+        if layer is None:
+            show_error("Please select an image layer to be normalized.")
+            return
+        self.imageLayer = layer
+        v_min = self.options.value("Output min") if self.options.isActivated("Output min") else None
+        v_max = self.options.value("Output max") if self.options.isActivated("Output max") else None
+        t_out = self.options.value("Output type")
+        per_frame = self.options.value("Per frame")
+        self.operation = NormalizeValues(layer.data, t_out, per_frame, (v_min, v_max))
+        worker = create_worker(self.operation.run,
+                               _progress={'desc': f'Normalizing values...'}
+                               )
+        worker.finished.connect(self.display_result)
+        worker.start()
+
+    def display_result(self):
+        l = self.displayImage(f"{self.imageLayer.name} normalized")
+        l.contrast_limits = self.operation.bounds
+
+
+class _ImageUtilsWidget(QWidget):
     def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer

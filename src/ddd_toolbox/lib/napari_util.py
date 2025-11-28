@@ -3,7 +3,6 @@ from napari.layers.points.points import Points
 from napari.layers.image.image import Image
 
 
-
 class NapariUtil:
     """ Utility methods for the napari image viewer.
     """

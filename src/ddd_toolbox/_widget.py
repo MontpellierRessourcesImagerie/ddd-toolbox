@@ -3,14 +3,12 @@ This module contains 3D image analysis widgets which provide a gui
 for common python image analysis operations, for example from skimage
 or scipy.
 """
-from abc import abstractmethod
 
 import numpy as np
-from PyQt5.QtWidgets import QVBoxLayout
-from qtpy.QtWidgets import QWidget
 from napari.qt.threading import create_worker
 from autooptions import Options
-from autooptions import OptionsWidget
+
+from ddd_toolbox.simple_widget import SimpleWidget
 from ddd_toolbox.lib.qtutil import TableView
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
@@ -24,55 +22,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import napari
-
-
-
-class SimpleWidget(QWidget):
-
-
-    def __init__(self, viewer):
-        super().__init__()
-        self.viewer = viewer
-        self.options = self.getOptions()
-        self.widget = None
-        self.operation = None
-        self.imageLayer = None
-        self.createLayout()
-
-
-    def createLayout(self):
-        self.widget = OptionsWidget(self.viewer, self.options)
-        self.widget.addApplyButton(self.apply)
-        layout = QVBoxLayout()
-        layout.addWidget(self.widget)
-        self.setLayout(layout)
-
-
-    def displayImage(self, name):
-        self.viewer.add_image(
-            self.operation.result,
-            name=name,
-            scale=self.imageLayer.scale,
-            units=self.imageLayer.units,
-            blending='additive'
-        )
-
-
-    @abstractmethod
-    def getOptions(self):
-        raise Exception("Abstract method getOptions of class SimpleWidget called!")
-
-
-    @abstractmethod
-    def apply(self):
-        raise Exception("Abstract method apply of class SimpleWidget called!")
-
-
-    @abstractmethod
-    def displayResult(self):
-        raise Exception("Abstract method displayResult of class SimpleWidget called!")
-
-
 
 class ConvolutionWidget(SimpleWidget):
 

@@ -48,9 +48,12 @@ contributions:
     - id: ddd-toolbox.rename_layers
       python_name: ddd_toolbox:RenameLayersWidget
       title: Rename Layers
-    - id: ddd-toolbox.image_utils
-      python_name: ddd_toolbox:ImageUtilsWidget
-      title: Image Utils
+    - id: ddd-toolbox.split_axes
+      python_name: ddd_toolbox:SplitAxesWidget
+      title: Split Axes
+    - id: ddd-toolbox.normalize_values
+      python_name: ddd_toolbox:NormalizeValuesWidget
+      title: Normalize Values
     - id: ddd-toolbox.filters
       python_name: ddd_toolbox:ImageFiltersWidget
       title: Filters
@@ -99,8 +102,10 @@ contributions:
       display_name: Invert Image
     - command: ddd-toolbox.rename_layers
       display_name: Rename Layers
-    - command: ddd-toolbox.image_utils
-      display_name: Image Utils
+    - command: ddd-toolbox.split_axes
+      display_name: Split Axes
+    - command: ddd-toolbox.normalize_values
+      display_name: Normalize Values
     - command: ddd-toolbox.filters
       display_name: Filters
     - command: ddd-toolbox.mask_utils
