@@ -5,8 +5,8 @@ description = "A collection of tools for 3D bio-image analysis."
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
-  {name = "Volker Baecker"},
-  {email = "volker.baecker@mri.cnrs.fr"},
+  {name = "Volker Baecker", email = "volker.baecker@mri.cnrs.fr"},
+  {name = "Clément Benedetti", email = "clement.benedetti@mri.cnrs.fr"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -30,7 +30,6 @@ requires-python = ">=3.10"
 # See best practices: https://napari.org/stable/plugins/building_a_plugin/best_practices.html
 dependencies = [
     "numpy",
-    "magicgui",
     "qtpy",
     "pyqtgraph",
     "scikit-image",
@@ -41,7 +40,7 @@ dependencies = [
     "napari-stitcher",
     "napari-pystackreg",
     "napari-correct-drift",
-    "auto-options-python@git+https://github.com/MontpellierRessourcesImagerie/auto-options-python.git",
+    "auto-options-python",
 ]
 
 [project.optional-dependencies]

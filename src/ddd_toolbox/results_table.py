@@ -1,6 +1,13 @@
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QApplication, QMainWindow,
-                            QTableWidget, QTableWidgetItem, QFileDialog)
-from PyQt5.QtGui import QColor, QFont
+from qtpy.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
+    QMainWindow,
+    QTableWidget,
+    QTableWidgetItem,
+    QFileDialog
+)
+from qtpy.QtGui import QColor, QFont
 import numpy as np
 import csv
 
