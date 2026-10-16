@@ -1,11 +1,18 @@
 import numpy as np
-from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, 
-    QHBoxLayout, QTableWidgetItem, QLabel, 
-    QSlider, QPushButton, QFileDialog, QTableWidget
+from qtpy.QtWidgets import (
+    QMainWindow, 
+    QWidget, 
+    QVBoxLayout, 
+    QHBoxLayout, 
+    QTableWidgetItem, 
+    QLabel, 
+    QSlider, 
+    QPushButton, 
+    QFileDialog, 
+    QTableWidget
 )
+from qtpy.QtCore import Qt
 import csv
-from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 
 

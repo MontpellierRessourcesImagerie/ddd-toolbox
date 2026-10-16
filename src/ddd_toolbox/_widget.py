@@ -6,12 +6,16 @@ or scipy.
 from abc import abstractmethod
 
 import numpy as np
-from qtpy.QtWidgets import QVBoxLayout
-from qtpy.QtWidgets import QWidget
+
+from qtpy.QtWidgets import (
+    QWidget,
+    QVBoxLayout
+)
 from napari.qt.threading import create_worker
 from autooptions import Options
 from autooptions import OptionsWidget
-from ddd_toolbox.lib.qtutil import TableView
+from autooptions.qtutil import TableView
+
 from ddd_toolbox.lib.filter import ConvolutionFilter
 from ddd_toolbox.lib.transform import FFT, InverseFFT
 from ddd_toolbox.lib.image import ImageCalculator, ImageInfo, Invert
