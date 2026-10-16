@@ -6,7 +6,7 @@ or scipy.
 from abc import abstractmethod
 
 import numpy as np
-from PyQt5.QtWidgets import QVBoxLayout
+from qtpy.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
 from napari.qt.threading import create_worker
 from autooptions import Options
